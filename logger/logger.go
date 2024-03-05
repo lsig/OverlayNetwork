@@ -28,9 +28,9 @@ func init() {
 
 	logger = &Logger{
 		Level:         InfoLevel,
-		infoLogger:    log.New(os.Stdout, green+" INFO | "+reset, log.LstdFlags),
-		warningLogger: log.New(os.Stdout, yellow+" WARN | "+reset, log.LstdFlags),
-		errorLogger:   log.New(os.Stdout, red+" ERR  | "+reset, log.LstdFlags),
+		infoLogger:    log.New(os.Stdout, green+" INFO  | "+reset, log.LstdFlags),
+		warningLogger: log.New(os.Stdout, yellow+" WARN  | "+reset, log.LstdFlags),
+		errorLogger:   log.New(os.Stdout, red+" ERROR | "+reset, log.LstdFlags),
 	}
 }
 
