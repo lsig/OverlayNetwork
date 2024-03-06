@@ -20,9 +20,9 @@ func main() {
 
 	nodeAddresses := []string{"192.168.1.1", "192.168.1.2", "192.168.1.3"}
 
-		for _, address := range nodeAddresses {
-			r.AddNode(address)
-		}
+	for _, address := range nodeAddresses {
+		r.AddNode(address)
+	}
 
 	// Perform some tasks with the nodes
 	performTasksWithNodes(r)

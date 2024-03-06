@@ -4,16 +4,11 @@ import (
 	"fmt"
 
 	"github.com/lsig/OverlayNetwork/logger"
+	"github.com/lsig/OverlayNetwork/node"
 )
 
-type Node struct {
-	Id           int32
-	Address      string
-	RoutingTable []int
-}
-
-func NewNode(id int32, address string) *Node {
-	return &Node{
+func NewNode(id uint32, address string) *node.Node {
+	return &node.Node{
 		Id:           id,
 		Address:      address,
 		RoutingTable: []int{},
@@ -21,13 +16,13 @@ func NewNode(id int32, address string) *Node {
 }
 
 type Registry struct {
-	Nodes   map[int32]*Node
+	Nodes   map[uint32]*node.Node
 	NoNodes int
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		Nodes:   map[int32]*Node{},
+		Nodes:   map[uint32]*node.Node{},
 		NoNodes: 0,
 	}
 }
@@ -38,7 +33,7 @@ func (r *Registry) AddNode(address string) {
 		return
 	}
 
-	node := NewNode(int32(r.NoNodes), address)
+	node := NewNode(uint32(r.NoNodes), address)
 	r.Nodes[node.Id] = node
 	r.NoNodes++
 
@@ -46,7 +41,7 @@ func (r *Registry) AddNode(address string) {
 	logger.Info(msg)
 }
 
-func (r *Registry) RemoveNode(id int32) {
+func (r *Registry) RemoveNode(id uint32) {
 	_, ok := r.Nodes[id]
 	if ok {
 		delete(r.Nodes, id)
