@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"math/rand/v2"
 
 	"github.com/lsig/OverlayNetwork/logger"
 )
@@ -22,13 +23,17 @@ func NewNode(id int32, address string) *Node {
 
 type Registry struct {
 	Nodes   map[int32]*Node
+	Keys    []int32
 	NoNodes int
+    Capacity int
 }
 
-func NewRegistry() *Registry {
+func NewRegistry(capacity int) *Registry {
 	return &Registry{
 		Nodes:   map[int32]*Node{},
+		Keys:    []int32{},
 		NoNodes: 0,
+        Capacity: capacity,
 	}
 }
 
@@ -38,7 +43,8 @@ func (r *Registry) AddNode(address string) {
 		return
 	}
 
-	node := NewNode(int32(r.NoNodes), address)
+	id := generateId(r.Nodes)
+	node := NewNode(int32(id), address)
 	r.Nodes[node.Id] = node
 	r.NoNodes++
 
@@ -56,6 +62,15 @@ func (r *Registry) RemoveNode(id int32) {
 	} else {
 		msg := fmt.Sprintf("Node %d not found", id)
 		logger.Error(msg)
+	}
+}
+
+func generateId(keys map[int32]*Node) int32 {
+	for {
+		id := int32(rand.IntN(128))
+		if _, ok := keys[id]; !ok {
+			return id
+		}
 	}
 }
 
