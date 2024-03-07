@@ -22,18 +22,18 @@ func NewNode(id int32, address string) *Node {
 }
 
 type Registry struct {
-	Nodes   map[int32]*Node
-	Keys    []int32
-	NoNodes int
-    Capacity int
+	Nodes    map[int32]*Node
+	Keys     []int32
+	NoNodes  int
+	Capacity int
 }
 
 func NewRegistry(capacity int) *Registry {
 	return &Registry{
-		Nodes:   map[int32]*Node{},
-		Keys:    []int32{},
-		NoNodes: 0,
-        Capacity: capacity,
+		Nodes:    map[int32]*Node{},
+		Keys:     []int32{},
+		NoNodes:  0,
+		Capacity: capacity,
 	}
 }
 
