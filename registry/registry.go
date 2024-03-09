@@ -10,42 +10,41 @@ import (
 )
 
 type Node struct {
-	Id            int32
-	Address       string
-	RoutingTable  []int
-	SetupComplete bool
+	Id           int32
+	Address      string
+	RoutingTable map[int32]string
 }
 
 func NewNode(id int32, address string) *Node {
 	return &Node{
 		Id:           id,
 		Address:      address,
-		RoutingTable: []int{},
+		RoutingTable: map[int32]string{},
 	}
 }
 
 type Registry struct {
 	Nodes         map[int32]*Node
 	Keys          []int32
-	NoNodes       int
 	RTableSize    int
 	SetupComplete bool
 	Addresses     chan string
+	Packets       int
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
 		Nodes:         map[int32]*Node{},
 		Keys:          []int32{},
-		NoNodes:       0,
 		RTableSize:    0,
 		SetupComplete: false,
 		Addresses:     make(chan string, 128),
+		Packets:       0,
 	}
 }
 
 func (r *Registry) AddNode(address string) {
-	if r.NoNodes >= 128 {
+	if len(r.Keys) >= 128 {
 		logger.Warning("Number of Nodes should not exceed 128")
 		return
 	}
@@ -54,7 +53,6 @@ func (r *Registry) AddNode(address string) {
 	node := NewNode(int32(id), address)
 	r.Nodes[node.Id] = node
 	r.Keys = append(r.Keys, node.Id)
-	r.NoNodes++
 
 	msg := fmt.Sprintf("Node %d added to overlay network", node.Id)
 	logger.Info(msg)
@@ -83,11 +81,16 @@ func (r *Registry) GenerateRoutingTables(size int) {
 			neighbour := int(math.Pow(2, float64(i)))
 			neighbourIndex := (index + neighbour) % noKeys
 			neighbourKey := r.Keys[neighbourIndex]
+			neighbourNode := r.Nodes[neighbourKey]
 
 			node := r.Nodes[key]
-			node.RoutingTable = append(node.RoutingTable, int(neighbourKey))
+			node.RoutingTable[neighbourKey] = neighbourNode.Address
 		}
 	}
+
+}
+
+func (r *Registry) SendRegistry() {
 
 }
 
@@ -113,8 +116,4 @@ func deleteKey(keys []int32, id int32) []int32 {
 		keys = append(keys[:index], keys[index+1:]...)
 	}
 	return keys
-}
-
-func (r *Registry) SendRegistry() {
-
 }
