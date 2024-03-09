@@ -37,9 +37,17 @@ type Registry struct {
 	SetupComplete bool
 	Addresses     chan string
 	Packets       int
+	Listener      net.Listener
+	Messages      chan *pb.MiniChord
 }
 
-func NewRegistry() *Registry {
+func NewRegistry(port string) (*Registry, error) {
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		logger.Error("Failed to initilize listener")
+		return nil, err
+	}
+
 	return &Registry{
 		Nodes:         map[int32]*Node{},
 		Keys:          []int32{},
@@ -47,7 +55,9 @@ func NewRegistry() *Registry {
 		SetupComplete: false,
 		Addresses:     make(chan string, 128),
 		Packets:       0,
-	}
+		Listener:      listener,
+		Messages:      make(chan *pb.MiniChord, 128),
+	}, nil
 }
 
 func (r *Registry) AddNode(address string) {
@@ -97,11 +107,49 @@ func (r *Registry) GenerateRoutingTables(size int) {
 
 }
 
-func (r *Registry) ReceiveMessage(conn net.Conn) (*pb.MiniChord, error) {
+func (r *Registry) Start() {
+	logger.Info("Registry listener started")
+
+	r.MessageProcessing()
+
+	for {
+		conn, err := r.Listener.Accept()
+		if err != nil {
+			msg := fmt.Sprintf("Error accepting connection %s", err)
+			logger.Error(msg)
+			continue
+		}
+		go r.HandleConnection(conn)
+	}
+}
+
+func (r *Registry) MessageProcessing() {
+	go func() {
+		for message := range r.Messages {
+			switch msg := message.Message.(type) {
+			case *pb.MiniChord_Registration:
+				continue
+			case *pb.MiniChord_Deregistration:
+				continue
+			case *pb.MiniChord_NodeRegistryResponse:
+				continue
+			case *pb.MiniChord_TaskFinished:
+				continue
+			case *pb.MiniChord_ReportTrafficSummary:
+				continue
+			default:
+				errMsg := fmt.Sprintf("Unknown message type received: %s", msg)
+				logger.Error(errMsg)
+			}
+		}
+	}()
+}
+
+func (r *Registry) ReceiveMessage(conn net.Conn) error {
 	bs := make([]byte, I64SIZE)
 
 	if _, err := io.ReadFull(conn, bs); err != nil {
-		return nil, err
+		return err
 	}
 
 	numBytes := int(binary.BigEndian.Uint64(bs))
@@ -109,18 +157,20 @@ func (r *Registry) ReceiveMessage(conn net.Conn) (*pb.MiniChord, error) {
 	data := make([]byte, numBytes)
 
 	if _, err := io.ReadFull(conn, data); err != nil {
-		return nil, err
+		return err
 	}
 
 	var message pb.MiniChord
 	if err := proto.Unmarshal(data, &message); err != nil {
-		return nil, err
+		return err
 	}
 
 	msg := fmt.Sprintf("Received message from %s", conn.RemoteAddr().String())
 	logger.Info(msg)
 
-	return &message, nil
+	r.Messages <- &message
+
+	return nil
 }
 
 func (r *Registry) SendMessage(conn net.Conn, message *pb.MiniChord) error {
@@ -148,6 +198,21 @@ func (r *Registry) SendMessage(conn net.Conn, message *pb.MiniChord) error {
 	}
 
 	return nil
+}
+
+func (r *Registry) HandleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	for {
+		err := r.ReceiveMessage(conn)
+		if err != nil {
+			if err != io.EOF {
+				msg := fmt.Sprintf("Error receiving message: %v", err)
+				logger.Error(msg)
+			}
+			break
+		}
+	}
 }
 
 func generateId(keys map[int32]*Node) int32 {
