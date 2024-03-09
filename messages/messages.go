@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	minichord "github.com/lsig/OverlayNetwork/pb"
 	"google.golang.org/protobuf/proto"
@@ -22,7 +23,7 @@ func stdInputListener(messageChan chan string) {
 
 func main() {
 	fmt.Printf("Messages here\n")
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", "localhost:8080") // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		return
@@ -42,20 +43,29 @@ func main() {
 			return
 		}
 		fmt.Printf("Accepted connection from client: %v\n", conn.RemoteAddr().String())
+
 		// Handle connection in a goroutine, allowing the server to continue listening.
 		go func(c net.Conn) {
+			defer c.Close()
 			// Read the request
-			buffer := make([]byte, 1024)
-			c.Read(buffer)
+			go func() {
+				scanner := bufio.NewScanner(conn)
+				for scanner.Scan() {
+					fmt.Printf("%s: %s\n", c.RemoteAddr().String(), scanner.Text())
+				}
+			}()
 
-			fmt.Printf("client %s: %s", c.RemoteAddr().String(), string(buffer))
+			for {
+				message := <-messageChan
+				// Wait for a message from the channel and send it to the client
+				msg := strings.TrimSpace(message)
+				if msg == "exit" {
+					fmt.Println("Closing connection with", c.RemoteAddr().String())
+					break
+				}
+				io.WriteString(c, message+"\n")
+			}
 
-			// Wait for a message from the channel and send it to the client
-			message := <-messageChan
-			io.WriteString(c, message+"\n")
-
-			// Close the connection
-			c.Close()
 		}(conn)
 	}
 }
