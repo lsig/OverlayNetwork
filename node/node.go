@@ -1,7 +1,7 @@
 package node
 
 type Node struct {
-	Id           uint32
+	Id           int32
 	Address      string
-	RoutingTable []int
+	RoutingTable map[int32]string
 }
