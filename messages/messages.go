@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
@@ -16,13 +16,33 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func stdInputListener(messageChan chan string) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		messageChan <- scanner.Text()
+func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Registry) {
+	defer wg.Done()
+	var input string
+	listening := true
+	for listening {
+		fmt.Scanln(&input)
+
+		switch input {
+		case "exit":
+			fmt.Println("exiting...")
+
+			deregistration := minichord.Deregistration{Id: int32(node.ID), Address: node.Address.String()}
+
+			chord := minichord.MiniChord{Message: &minichord.MiniChord_Deregistration{Deregistration: &deregistration}}
+			err := SendMiniChordMessage(registry.Connection, &chord)
+			if err != nil {
+				fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
+			} else {
+				listening = false
+			}
+		case "print":
+			fmt.Println("printing...")
+		default:
+			fmt.Println("unknown...")
+		}
 	}
 }
-
 func main() {
 	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 	if err != nil {
@@ -63,6 +83,11 @@ func main() {
 	chord := minichord.MiniChord{Message: &minichord.MiniChord_Registration{Registration: &message}}
 
 	SendMiniChordMessage(registry.Connection, &chord)
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go handleStdInput(&wg, &node, registry)
+	wg.Wait()
 }
 
 const I64SIZE int = 8
