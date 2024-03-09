@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"net"
 	"slices"
+	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -30,15 +31,21 @@ func NewNode(id int32, address string) *Node {
 	}
 }
 
+type Packet struct {
+	Conn    net.Conn
+	Content *pb.MiniChord
+}
+
 type Registry struct {
 	Nodes         map[int32]*Node
 	Keys          []int32
 	RTableSize    int
 	SetupComplete bool
 	Addresses     chan string
-	Packets       int
+	NoPackets     int
 	Listener      net.Listener
-	Messages      chan *pb.MiniChord
+	Packets       chan *Packet
+	Locker        sync.Mutex
 }
 
 func NewRegistry(port string) (*Registry, error) {
@@ -54,16 +61,18 @@ func NewRegistry(port string) (*Registry, error) {
 		RTableSize:    0,
 		SetupComplete: false,
 		Addresses:     make(chan string, 128),
-		Packets:       0,
+		NoPackets:     0,
 		Listener:      listener,
-		Messages:      make(chan *pb.MiniChord, 128),
+		Packets:       make(chan *Packet, 128),
 	}, nil
 }
 
-func (r *Registry) AddNode(address string) {
+func (r *Registry) AddNode(address string) int32 {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
 	if len(r.Keys) >= 128 {
 		logger.Warning("Number of Nodes should not exceed 128")
-		return
+		return -1
 	}
 
 	id := generateId(r.Nodes)
@@ -73,9 +82,12 @@ func (r *Registry) AddNode(address string) {
 
 	msg := fmt.Sprintf("Node %d added to overlay network", node.Id)
 	logger.Info(msg)
+	return id
 }
 
 func (r *Registry) RemoveNode(id int32) {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
 	_, ok := r.Nodes[id]
 	if ok {
 		delete(r.Nodes, id)
@@ -90,6 +102,9 @@ func (r *Registry) RemoveNode(id int32) {
 }
 
 func (r *Registry) GenerateRoutingTables(size int) {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
+
 	slices.Sort(r.Keys)
 	noKeys := len(r.Keys)
 
@@ -125,8 +140,8 @@ func (r *Registry) Start() {
 
 func (r *Registry) MessageProcessing() {
 	go func() {
-		for message := range r.Messages {
-			switch msg := message.Message.(type) {
+		for packet := range r.Packets {
+			switch msgType := packet.Content.Message.(type) {
 			case *pb.MiniChord_Registration:
 				continue
 			case *pb.MiniChord_Deregistration:
@@ -138,7 +153,7 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_ReportTrafficSummary:
 				continue
 			default:
-				errMsg := fmt.Sprintf("Unknown message type received: %s", msg)
+				errMsg := fmt.Sprintf("Unknown message type received: %s", msgType)
 				logger.Error(errMsg)
 			}
 		}
@@ -160,15 +175,16 @@ func (r *Registry) ReceiveMessage(conn net.Conn) error {
 		return err
 	}
 
-	var message pb.MiniChord
-	if err := proto.Unmarshal(data, &message); err != nil {
+	var packet Packet
+	if err := proto.Unmarshal(data, packet.Content); err != nil {
 		return err
 	}
 
 	msg := fmt.Sprintf("Received message from %s", conn.RemoteAddr().String())
 	logger.Info(msg)
 
-	r.Messages <- &message
+	packet.Conn = conn
+	r.Packets <- &packet
 
 	return nil
 }
