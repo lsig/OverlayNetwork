@@ -97,7 +97,7 @@ func (r *Registry) GenerateRoutingTables(size int) {
 
 }
 
-func (r *Registry) ReceiveMessages(conn net.Conn) (*pb.MiniChord, error) {
+func (r *Registry) ReceiveMessage(conn net.Conn) (*pb.MiniChord, error) {
 	bs := make([]byte, I64SIZE)
 
 	if _, err := io.ReadFull(conn, bs); err != nil {
@@ -123,8 +123,31 @@ func (r *Registry) ReceiveMessages(conn net.Conn) (*pb.MiniChord, error) {
 	return &message, nil
 }
 
-func (r *Registry) SendRegistry() {
+func (r *Registry) SendMessage(conn net.Conn, message *pb.MiniChord) error {
+	data, err := proto.Marshal(message)
 
+	if err != nil {
+		logger.Error("Failed to marshal message")
+		return fmt.Errorf("Failed to marshal message %w", err)
+	}
+
+	msg := fmt.Sprintf("Sending message to %s", conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	bs := make([]byte, I64SIZE)
+	binary.BigEndian.PutUint64(bs, uint64(len(data)))
+
+	if _, err := conn.Write(bs); err != nil {
+		logger.Error("Error sending length message")
+		return fmt.Errorf("Error sending message of length %w", err)
+	}
+
+	if _, err := conn.Write(data); err != nil {
+		logger.Error("Error sending message data")
+		return fmt.Errorf("Error sending message data %w", err)
+	}
+
+	return nil
 }
 
 func generateId(keys map[int32]*Node) int32 {
