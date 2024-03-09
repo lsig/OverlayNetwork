@@ -7,11 +7,16 @@ import (
 	"slices"
 
 	"github.com/lsig/OverlayNetwork/logger"
-	"github.com/lsig/OverlayNetwork/node"
 )
 
-func NewNode(id int32, address string) *node.Node {
-	return &node.Node{
+type Node struct {
+	Id           int32
+	Address      string
+	RoutingTable map[int32]string
+}
+
+func NewNode(id int32, address string) *Node {
+	return &Node{
 		Id:           id,
 		Address:      address,
 		RoutingTable: map[int32]string{},
@@ -19,7 +24,7 @@ func NewNode(id int32, address string) *node.Node {
 }
 
 type Registry struct {
-	Nodes         map[int32]*node.Node
+	Nodes         map[int32]*Node
 	Keys          []int32
 	RTableSize    int
 	SetupComplete bool
@@ -29,7 +34,7 @@ type Registry struct {
 
 func NewRegistry() *Registry {
 	return &Registry{
-		Nodes:         map[int32]*node.Node{},
+		Nodes:         map[int32]*Node{},
 		Keys:          []int32{},
 		RTableSize:    0,
 		SetupComplete: false,
@@ -89,7 +94,7 @@ func (r *Registry) SendRegistry() {
 
 }
 
-func generateId(keys map[int32]*node.Node) int32 {
+func generateId(keys map[int32]*Node) int32 {
 	for {
 		id := int32(rand.IntN(128))
 		if _, ok := keys[id]; !ok {
