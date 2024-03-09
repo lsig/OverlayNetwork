@@ -1,13 +1,20 @@
 package registry
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/rand/v2"
+	"net"
 	"slices"
 
 	"github.com/lsig/OverlayNetwork/logger"
+	pb "github.com/lsig/OverlayNetwork/pb"
+	"google.golang.org/protobuf/proto"
 )
+
+const I64SIZE = 8
 
 type Node struct {
 	Id           int32
@@ -88,6 +95,32 @@ func (r *Registry) GenerateRoutingTables(size int) {
 		}
 	}
 
+}
+
+func (r *Registry) ReceiveMessages(conn net.Conn) (*pb.MiniChord, error) {
+	bs := make([]byte, I64SIZE)
+
+	if _, err := io.ReadFull(conn, bs); err != nil {
+		return nil, err
+	}
+
+	numBytes := int(binary.BigEndian.Uint64(bs))
+
+	data := make([]byte, numBytes)
+
+	if _, err := io.ReadFull(conn, data); err != nil {
+		return nil, err
+	}
+
+	var message pb.MiniChord
+	if err := proto.Unmarshal(data, &message); err != nil {
+		return nil, err
+	}
+
+	msg := fmt.Sprintf("Received message from %s", conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	return &message, nil
 }
 
 func (r *Registry) SendRegistry() {
