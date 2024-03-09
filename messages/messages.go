@@ -12,7 +12,7 @@ import (
 
 	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
-	minichord "github.com/lsig/OverlayNetwork/pb"
+	pb "github.com/lsig/OverlayNetwork/pb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,9 +27,9 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 		case "exit":
 			fmt.Println("exiting...")
 
-			deregistration := minichord.Deregistration{Id: int32(node.ID), Address: node.Address.String()}
+			deregistration := pb.Deregistration{Id: int32(node.ID), Address: node.Address.String()}
 
-			chord := minichord.MiniChord{Message: &minichord.MiniChord_Deregistration{Deregistration: &deregistration}}
+			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
 			err := SendMiniChordMessage(registry.Connection, &chord)
 			if err != nil {
 				fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
@@ -78,9 +78,9 @@ func main() {
 	fmt.Println("connected to registry")
 	registry.Connection = connection
 
-	message := minichord.Registration{Address: node.Address.String()}
+	message := pb.Registration{Address: node.Address.String()}
 
-	chord := minichord.MiniChord{Message: &minichord.MiniChord_Registration{Registration: &message}}
+	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
 	SendMiniChordMessage(registry.Connection, &chord)
 	wg := sync.WaitGroup{}
@@ -92,7 +92,7 @@ func main() {
 
 const I64SIZE int = 8
 
-func SendMiniChordMessage(conn net.Conn, message *minichord.MiniChord) (err error) {
+func SendMiniChordMessage(conn net.Conn, message *pb.MiniChord) (err error) {
 	data, err := proto.Marshal(message)
 	log.Printf("SendMiniChordMessage(): sending %s (%v), %d to %s\n", message, data, len(data), conn.RemoteAddr().String())
 	if err != nil {
@@ -121,7 +121,7 @@ func SendMiniChordMessage(conn net.Conn, message *minichord.MiniChord) (err erro
 	return
 }
 
-func ReceiveMiniChordMessage(conn net.Conn) (message *minichord.MiniChord, err error) { // First, get the number of bytes to received
+func ReceiveMiniChordMessage(conn net.Conn) (message *pb.MiniChord, err error) { // First, get the number of bytes to received
 	bs := make([]byte, I64SIZE)
 	length, err := conn.Read(bs)
 	if err != nil {
@@ -149,7 +149,7 @@ func ReceiveMiniChordMessage(conn net.Conn) (message *minichord.MiniChord, err e
 		return
 	}
 	// Unmarshal the message
-	message = &minichord.MiniChord{}
+	message = &pb.MiniChord{}
 	err = proto.Unmarshal(data[:length], message)
 	if err != nil {
 		log.Printf("ReceivedMiniChordMessage() unmarshal error: %s\n",
