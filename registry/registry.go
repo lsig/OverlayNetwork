@@ -49,7 +49,7 @@ type Registry struct {
 }
 
 func NewRegistry(port string) (*Registry, error) {
-	listener, err := net.Listen("tcp", ":"+port)
+	listener, err := net.Listen("tcp", "localhost:"+port)
 	if err != nil {
 		logger.Error("Failed to initilize listener")
 		return nil, err
@@ -175,7 +175,11 @@ func (r *Registry) ReceiveMessage(conn net.Conn) error {
 		return err
 	}
 
-	var packet Packet
+	packet := Packet{
+		Conn:    conn,
+		Content: &pb.MiniChord{},
+	}
+
 	if err := proto.Unmarshal(data, packet.Content); err != nil {
 		return err
 	}
@@ -183,7 +187,6 @@ func (r *Registry) ReceiveMessage(conn net.Conn) error {
 	msg := fmt.Sprintf("Received message from %s", conn.RemoteAddr().String())
 	logger.Info(msg)
 
-	packet.Conn = conn
 	r.Packets <- &packet
 
 	return nil
