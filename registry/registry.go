@@ -1,13 +1,21 @@
 package registry
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/rand/v2"
+	"net"
 	"slices"
+	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
+	pb "github.com/lsig/OverlayNetwork/pb"
+	"google.golang.org/protobuf/proto"
 )
+
+const I64SIZE = 8
 
 type Node struct {
 	Id           int32
@@ -23,30 +31,48 @@ func NewNode(id int32, address string) *Node {
 	}
 }
 
+type Packet struct {
+	Conn    net.Conn
+	Content *pb.MiniChord
+}
+
 type Registry struct {
 	Nodes         map[int32]*Node
 	Keys          []int32
 	RTableSize    int
 	SetupComplete bool
 	Addresses     chan string
-	Packets       int
+	NoPackets     int
+	Listener      net.Listener
+	Packets       chan *Packet
+	Locker        sync.Mutex
 }
 
-func NewRegistry() *Registry {
+func NewRegistry(port string) (*Registry, error) {
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		logger.Error("Failed to initilize listener")
+		return nil, err
+	}
+
 	return &Registry{
 		Nodes:         map[int32]*Node{},
 		Keys:          []int32{},
 		RTableSize:    0,
 		SetupComplete: false,
 		Addresses:     make(chan string, 128),
-		Packets:       0,
-	}
+		NoPackets:     0,
+		Listener:      listener,
+		Packets:       make(chan *Packet, 128),
+	}, nil
 }
 
-func (r *Registry) AddNode(address string) {
+func (r *Registry) AddNode(address string) int32 {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
 	if len(r.Keys) >= 128 {
 		logger.Warning("Number of Nodes should not exceed 128")
-		return
+		return -1
 	}
 
 	id := generateId(r.Nodes)
@@ -56,9 +82,12 @@ func (r *Registry) AddNode(address string) {
 
 	msg := fmt.Sprintf("Node %d added to overlay network", node.Id)
 	logger.Info(msg)
+	return id
 }
 
 func (r *Registry) RemoveNode(id int32) {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
 	_, ok := r.Nodes[id]
 	if ok {
 		delete(r.Nodes, id)
@@ -73,6 +102,9 @@ func (r *Registry) RemoveNode(id int32) {
 }
 
 func (r *Registry) GenerateRoutingTables(size int) {
+	r.Locker.Lock()
+	defer r.Locker.Unlock()
+
 	slices.Sort(r.Keys)
 	noKeys := len(r.Keys)
 
@@ -90,8 +122,113 @@ func (r *Registry) GenerateRoutingTables(size int) {
 
 }
 
-func (r *Registry) SendRegistry() {
+func (r *Registry) Start() {
+	logger.Info("Registry listener started")
 
+	r.MessageProcessing()
+
+	for {
+		conn, err := r.Listener.Accept()
+		if err != nil {
+			msg := fmt.Sprintf("Error accepting connection %s", err)
+			logger.Error(msg)
+			continue
+		}
+		go r.HandleConnection(conn)
+	}
+}
+
+func (r *Registry) MessageProcessing() {
+	go func() {
+		for packet := range r.Packets {
+			switch msgType := packet.Content.Message.(type) {
+			case *pb.MiniChord_Registration:
+				continue
+			case *pb.MiniChord_Deregistration:
+				continue
+			case *pb.MiniChord_NodeRegistryResponse:
+				continue
+			case *pb.MiniChord_TaskFinished:
+				continue
+			case *pb.MiniChord_ReportTrafficSummary:
+				continue
+			default:
+				errMsg := fmt.Sprintf("Unknown message type received: %s", msgType)
+				logger.Error(errMsg)
+			}
+		}
+	}()
+}
+
+func (r *Registry) ReceiveMessage(conn net.Conn) error {
+	bs := make([]byte, I64SIZE)
+
+	if _, err := io.ReadFull(conn, bs); err != nil {
+		return err
+	}
+
+	numBytes := int(binary.BigEndian.Uint64(bs))
+
+	data := make([]byte, numBytes)
+
+	if _, err := io.ReadFull(conn, data); err != nil {
+		return err
+	}
+
+	var packet Packet
+	if err := proto.Unmarshal(data, packet.Content); err != nil {
+		return err
+	}
+
+	msg := fmt.Sprintf("Received message from %s", conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	packet.Conn = conn
+	r.Packets <- &packet
+
+	return nil
+}
+
+func (r *Registry) SendMessage(conn net.Conn, message *pb.MiniChord) error {
+	data, err := proto.Marshal(message)
+
+	if err != nil {
+		logger.Error("Failed to marshal message")
+		return fmt.Errorf("Failed to marshal message %w", err)
+	}
+
+	msg := fmt.Sprintf("Sending message to %s", conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	bs := make([]byte, I64SIZE)
+	binary.BigEndian.PutUint64(bs, uint64(len(data)))
+
+	if _, err := conn.Write(bs); err != nil {
+		logger.Error("Error sending length message")
+		return fmt.Errorf("Error sending message of length %w", err)
+	}
+
+	if _, err := conn.Write(data); err != nil {
+		logger.Error("Error sending message data")
+		return fmt.Errorf("Error sending message data %w", err)
+	}
+
+	return nil
+}
+
+func (r *Registry) HandleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	for {
+		err := r.ReceiveMessage(conn)
+		if err != nil {
+			if err != io.EOF {
+				msg := fmt.Sprintf("Error receiving message: %v", err)
+				logger.Error(msg)
+			}
+			break
+		}
+	}
 }
 
 func generateId(keys map[int32]*Node) int32 {
