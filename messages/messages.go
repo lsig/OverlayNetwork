@@ -8,17 +8,11 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 
+	"github.com/lsig/OverlayNetwork/messages/utils"
 	minichord "github.com/lsig/OverlayNetwork/pb"
 	"google.golang.org/protobuf/proto"
 )
-
-type Registry struct {
-	Address net.IP
-	Port    uint16
-}
 
 func stdInputListener(messageChan chan string) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -27,89 +21,66 @@ func stdInputListener(messageChan chan string) {
 	}
 }
 
-func getRegistryFromProgramArgs(args []string) (*Registry, error) {
-	usageError := fmt.Errorf("usage: go run messages/messages.go <registry-host>:<registry-port>")
-	if len(args) != 2 {
-		return nil, usageError
-	}
-
-	addressInfo := strings.Split(args[1], ":")
-	if len(addressInfo) != 2 {
-		return nil, usageError
-	}
-
-	if addressInfo[0] == "localhost" {
-		addressInfo[0] = "127.0.0.1"
-	}
-
-	address := net.ParseIP(addressInfo[0])
-	port, err := strconv.Atoi(addressInfo[1])
-
-	if address == nil || err != nil || port <= 0 || port >= 65536 {
-		return nil, usageError
-	}
-
-	registry := Registry{Address: address, Port: uint16(port)}
-
-	return &registry, nil
-}
-
 func main() {
-	registry, err := getRegistryFromProgramArgs(os.Args)
+	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("%v\n", registry)
+	fmt.Printf("Registry: %v\n", registry)
 
-	fmt.Printf("%v arguments\n", len(os.Args))
-	listener, err := net.Listen("tcp", "localhost:8080") // remove "localhost" if used externally. This will trigger annoying firewall prompts however
+	port := utils.GenerateRandomPort()
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
+
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
 		return
 	}
 
-	// Create a channel to receive std input
-	messageChan := make(chan string)
-	go stdInputListener(messageChan)
-
 	defer listener.Close()
-	fmt.Println("TCP server listening on port 8080")
+	fmt.Printf("Listening on port %d\n", port)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			return
-		}
-		fmt.Printf("Accepted connection from client: %v\n", conn.RemoteAddr().String())
+	// // Create a channel to receive std input
+	// messageChan := make(chan string)
+	// go stdInputListener(messageChan)
 
-		// Handle connection in a goroutine, allowing the server to continue listening.
-		go func(c net.Conn) {
-			defer c.Close()
-			// Read the request
-			go func() {
-				scanner := bufio.NewScanner(conn)
-				for scanner.Scan() {
-					fmt.Printf("%s: %s\n", c.RemoteAddr().String(), scanner.Text())
-				}
-			}()
+	// fmt.Println("TCP server listening on port 8080")
 
-			for {
-				message := <-messageChan
-				// Wait for a message from the channel and send it to the client
-				msg := strings.TrimSpace(message)
-				if msg == "exit" {
-					fmt.Println("Closing connection with", c.RemoteAddr().String())
-					break
-				}
-				io.WriteString(c, message+"\n")
-			}
+	// for {
+	// 	conn, err := listener.Accept()
+	// 	if err != nil {
+	// 		fmt.Println("Error accepting: ", err.Error())
+	// 		return
+	// 	}
+	// 	fmt.Printf("Accepted connection from client: %v\n", conn.RemoteAddr().String())
 
-		}(conn)
-	}
+	// 	// Handle connection in a goroutine, allowing the server to continue listening.
+	// 	go func(c net.Conn) {
+	// 		defer c.Close()
+	// 		// Read the request
+	// 		go func() {
+	// 			scanner := bufio.NewScanner(conn)
+	// 			for scanner.Scan() {
+	// 				fmt.Printf("%s: %s\n", c.RemoteAddr().String(), scanner.Text())
+	// 			}
+	// 		}()
+
+	// 		for {
+	// 			message := <-messageChan
+	// 			// Wait for a message from the channel and send it to the client
+	// 			msg := strings.TrimSpace(message)
+	// 			if msg == "exit" {
+	// 				fmt.Println("Closing connection with", c.RemoteAddr().String())
+	// 				break
+	// 			}
+	// 			io.WriteString(c, message+"\n")
+	// 		}
+
+	// 	}(conn)
+	// }
 }
 
 const I64SIZE int = 8
