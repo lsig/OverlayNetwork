@@ -8,7 +8,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 
+	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
 	minichord "github.com/lsig/OverlayNetwork/pb"
 	"google.golang.org/protobuf/proto"
@@ -23,64 +25,44 @@ func stdInputListener(messageChan chan string) {
 
 func main() {
 	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
-
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Registry: %v\n", registry)
-
 	port := utils.GenerateRandomPort()
+	node := types.NodeInfo{Address: net.ParseIP("127.0.0.1"), Port: uint16(port)}
+	network := types.Network{}
+	fmt.Printf("network: %v\n", network)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
-
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
-		return
+		os.Exit(1)
 	}
 
 	defer listener.Close()
 	fmt.Printf("Listening on port %d\n", port)
 
-	// // Create a channel to receive std input
-	// messageChan := make(chan string)
-	// go stdInputListener(messageChan)
+	fmt.Printf("registry: %v:%v\n", registry.Address.String(), strconv.Itoa(int(registry.Port)))
+	tcpServer, err := net.ResolveTCPAddr("tcp", registry.Address.String()+":"+strconv.Itoa(int(registry.Port)))
+	if err != nil {
+		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
+		os.Exit(1)
+	}
+	connection, err := net.DialTCP("tcp", nil, tcpServer)
+	if err != nil {
+		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
+		os.Exit(1)
+	}
+	fmt.Println("connected to registry")
+	registry.Connection = connection
 
-	// fmt.Println("TCP server listening on port 8080")
+	message := minichord.Registration{Address: node.Address.String()}
 
-	// for {
-	// 	conn, err := listener.Accept()
-	// 	if err != nil {
-	// 		fmt.Println("Error accepting: ", err.Error())
-	// 		return
-	// 	}
-	// 	fmt.Printf("Accepted connection from client: %v\n", conn.RemoteAddr().String())
+	chord := minichord.MiniChord{Message: &minichord.MiniChord_Registration{Registration: &message}}
 
-	// 	// Handle connection in a goroutine, allowing the server to continue listening.
-	// 	go func(c net.Conn) {
-	// 		defer c.Close()
-	// 		// Read the request
-	// 		go func() {
-	// 			scanner := bufio.NewScanner(conn)
-	// 			for scanner.Scan() {
-	// 				fmt.Printf("%s: %s\n", c.RemoteAddr().String(), scanner.Text())
-	// 			}
-	// 		}()
-
-	// 		for {
-	// 			message := <-messageChan
-	// 			// Wait for a message from the channel and send it to the client
-	// 			msg := strings.TrimSpace(message)
-	// 			if msg == "exit" {
-	// 				fmt.Println("Closing connection with", c.RemoteAddr().String())
-	// 				break
-	// 			}
-	// 			io.WriteString(c, message+"\n")
-	// 		}
-
-	// 	}(conn)
-	// }
+	SendMiniChordMessage(registry.Connection, &chord)
 }
 
 const I64SIZE int = 8

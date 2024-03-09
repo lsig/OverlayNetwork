@@ -3,8 +3,9 @@ package types
 import "net"
 
 type Registry struct {
-	Address net.IP
-	Port    uint16
+	Address    net.IP
+	Port       uint16
+	Connection net.Conn
 }
 
 type NodeInfo struct {
