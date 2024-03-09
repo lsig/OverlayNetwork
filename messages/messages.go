@@ -8,11 +8,17 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	minichord "github.com/lsig/OverlayNetwork/pb"
 	"google.golang.org/protobuf/proto"
 )
+
+type Registry struct {
+	Address net.IP
+	Port    uint16
+}
 
 func stdInputListener(messageChan chan string) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -21,8 +27,44 @@ func stdInputListener(messageChan chan string) {
 	}
 }
 
+func getRegistryFromProgramArgs(args []string) (*Registry, error) {
+	usageError := fmt.Errorf("usage: go run messages/messages.go <registry-host>:<registry-port>")
+	if len(args) != 2 {
+		return nil, usageError
+	}
+
+	addressInfo := strings.Split(args[1], ":")
+	if len(addressInfo) != 2 {
+		return nil, usageError
+	}
+
+	if addressInfo[0] == "localhost" {
+		addressInfo[0] = "0.0.0.0"
+	}
+
+	address := net.ParseIP(addressInfo[0])
+	port, err := strconv.Atoi(addressInfo[1])
+
+	if address == nil || err != nil || port <= 0 || port >= 65536 {
+		return nil, usageError
+	}
+
+	registry := Registry{Address: address, Port: uint16(port)}
+
+	return &registry, nil
+}
+
 func main() {
-	fmt.Printf("Messages here\n")
+	registry, err := getRegistryFromProgramArgs(os.Args)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%v\n", registry)
+
+	fmt.Printf("%v arguments\n", len(os.Args))
 	listener, err := net.Listen("tcp", "localhost:8080") // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
 		fmt.Println("Error listening:", err.Error())
