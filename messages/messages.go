@@ -39,7 +39,7 @@ func getRegistryFromProgramArgs(args []string) (*Registry, error) {
 	}
 
 	if addressInfo[0] == "localhost" {
-		addressInfo[0] = "0.0.0.0"
+		addressInfo[0] = "127.0.0.1"
 	}
 
 	address := net.ParseIP(addressInfo[0])
