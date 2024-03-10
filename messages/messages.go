@@ -108,8 +108,6 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 
 func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.Network, error) {
 	network := types.Network{}
-	// routingTable := make()
-	// logger.Debugf("Peers: %v", nodeRegistry.Peers)
 
 	for _, peer := range nodeRegistry.Peers {
 		peerAddress, err := utils.GetAddressFromString(peer.Address)
@@ -130,6 +128,14 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 	logger.Debugf("Nodes: %v", network.Nodes)
 
 	return &network, nil
+}
+
+func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
+	defer wg.Done()
+}
+
+func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
+	defer wg.Done()
 }
 
 func main() {
@@ -181,7 +187,9 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
+	wg.Add(3)
 	go handleStdInput(&wg, node, registry)
+	go HandleListener(&wg, node)
+	go HandleConnector(&wg, network)
 	wg.Wait()
 }
