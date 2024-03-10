@@ -1,8 +1,10 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 const (
@@ -39,6 +41,16 @@ func SetLevel(level int) {
 }
 
 func Info(message string) {
+	message = strings.Trim(message, "\n")
+	if logger.Level <= InfoLevel {
+		logger.infoLogger.Println(message)
+	}
+}
+
+func Infof(format string, a ...any) {
+	format = strings.Trim(format, "\n")
+	message := fmt.Sprintf(format, a...)
+
 	if logger.Level <= InfoLevel {
 		logger.infoLogger.Println(message)
 	}

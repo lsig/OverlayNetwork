@@ -50,7 +50,7 @@ func main() {
 	port := utils.GenerateRandomPort()
 	node := types.NodeInfo{Address: net.ParseIP("127.0.0.1"), Port: uint16(port)}
 	network := types.Network{}
-	fmt.Printf("network: %v\n", network)
+	logger.Infof("network: %v\n", network)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
@@ -59,9 +59,9 @@ func main() {
 	}
 
 	defer listener.Close()
-	fmt.Printf("Listening on port %d\n", port)
+	logger.Infof("Listening on port %d", port)
 
-	fmt.Printf("registry: %v:%v\n", registry.Address.String(), strconv.Itoa(int(registry.Port)))
+	logger.Infof("registry: %v:%v", registry.Address.String(), strconv.Itoa(int(registry.Port)))
 	tcpServer, err := net.ResolveTCPAddr("tcp", registry.Address.String()+":"+strconv.Itoa(int(registry.Port)))
 	if err != nil {
 		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
@@ -72,10 +72,10 @@ func main() {
 		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
 		os.Exit(1)
 	}
-	fmt.Println("connected to registry")
+	logger.Info("connected to registry")
 	registry.Connection = connection
 
-	fmt.Printf("registry connection on port: %v\n", connection.LocalAddr().String())
+	logger.Infof("registry connection on port: %v", connection.LocalAddr().String())
 	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
 
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
@@ -87,9 +87,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Received minichord response: %v\n", response)
+	logger.Infof("Received minichord response: %v", response)
 
-	logger.Info("Waiting for NodeRegistry packet from registry...\n")
+	logger.Info("Waiting for NodeRegistry packet from registry...")
 
 	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
@@ -97,7 +97,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info(fmt.Sprintf("Received NodeRegistry response from registry: %v", nodeRegistry))
+	logger.Infof("Received NodeRegistry response from registry: %v", nodeRegistry)
 
 	wg := sync.WaitGroup{}
 
