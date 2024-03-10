@@ -24,7 +24,7 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 		case "exit":
 			fmt.Println("exiting...")
 
-			deregistration := pb.Deregistration{Id: int32(node.ID), Address: node.Address.String()}
+			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.String()}
 
 			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
 			err := utils.SendMessage(registry.Connection, &chord)
@@ -47,7 +47,7 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
-		return nil, fmt.Errorf("error listening:", err.Error())
+		return nil, fmt.Errorf("error listening: %s", err.Error())
 	}
 	logger.Infof("Listening on port %d", port)
 
@@ -72,7 +72,7 @@ func ConnectToRegistry(registry *types.Registry) error {
 	return nil
 }
 
-func Register(node *types.NodeInfo, registry *types.Registry) (*pb.MiniChord, error) {
+func Register(node *types.NodeInfo, registry *types.Registry) (*pb.RegistrationResponse, error) {
 	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
@@ -83,7 +83,27 @@ func Register(node *types.NodeInfo, registry *types.Registry) (*pb.MiniChord, er
 	}
 	logger.Infof("Received minichord response: %v", response)
 
-	return response, nil
+	nr, ok := response.GetMessage().(*pb.MiniChord_RegistrationResponse)
+	if !ok {
+		return nil, fmt.Errorf("error when parsing registrationResponse packet")
+	}
+
+	return nr.RegistrationResponse, nil
+}
+
+func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
+	logger.Info("Waiting for NodeRegistry packet from registry...")
+	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		return nil, fmt.Errorf("error receiving NodeRegistry packet from registry: %s", err.Error())
+	}
+	logger.Infof("Received NodeRegistry packet from registry: %v", nodeRegistry)
+
+	nr, ok := nodeRegistry.GetMessage().(*pb.MiniChord_NodeRegistry)
+	if !ok {
+		return nil, fmt.Errorf("error when parsing nodeRegistry packet")
+	}
+	return nr.NodeRegistry, nil
 }
 
 func main() {
@@ -109,20 +129,21 @@ func main() {
 	}
 
 	// send Registration
-	_, err = Register(node, registry)
+	registrationResponse, err := Register(node, registry)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	node.Id = registrationResponse.Result
+
+	// wait for Node Registry
+	nodeRegistry, err := GetNodeRegistry(registry)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
 
-	// wait for Node Registry
-	logger.Info("Waiting for NodeRegistry packet from registry...")
-	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
-	if err != nil {
-		logger.Errorf("error receiving NodeRegistry packet from registry: %s", err.Error())
-		os.Exit(1)
-	}
-	logger.Infof("Received NodeRegistry response from registry: %v", nodeRegistry)
+	logger.Infof("Ids: %v", nodeRegistry.Ids)
 
 	// Creating network
 	network := types.Network{}
