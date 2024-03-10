@@ -47,6 +47,8 @@ func GenerateRandomPort() int {
 		if err == nil {
 			fmt.Printf("server live on: %v\n", conn.RemoteAddr().String())
 			randomPort = -1
+		} else {
+			conn.Close()
 		}
 	}
 
