@@ -3,13 +3,15 @@ package registry
 import (
 	"fmt"
 	"math"
+	"net"
 	"slices"
 
-	"github.com/lsig/OverlayNetwork/logger"
 	"math/rand/v2"
+
+	"github.com/lsig/OverlayNetwork/logger"
 )
 
-func (r *Registry) AddNode(address string) int32 {
+func (r *Registry) AddNode(address string, connection net.Conn) int32 {
 	r.Locker.Lock()
 	defer r.Locker.Unlock()
 	if len(r.Keys) >= 128 {
@@ -18,7 +20,7 @@ func (r *Registry) AddNode(address string) int32 {
 	}
 
 	id := generateId(r.Nodes)
-	node := NewNode(int32(id), address)
+	node := NewNode(int32(id), address, connection)
 	r.Nodes[node.Id] = node
 	r.Keys = append(r.Keys, node.Id)
 
@@ -95,4 +97,24 @@ func deleteKey(keys []int32, id int32) []int32 {
 		keys = append(keys[:index], keys[index+1:]...)
 	}
 	return keys
+}
+
+func verifyAddress(clientAddr string, connAddr string) bool {
+	clientIp, _, err := net.SplitHostPort(clientAddr)
+
+	if err != nil {
+		return false
+	}
+
+	connIp, _, err := net.SplitHostPort(connAddr)
+
+	if err != nil {
+		return false
+	}
+
+	if clientIp == connIp {
+		return true
+	}
+
+	return false
 }
