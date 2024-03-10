@@ -78,7 +78,7 @@ func main() {
 	fmt.Println("connected to registry")
 	registry.Connection = connection
 
-	message := pb.Registration{Address: node.Address.String()}
+	message := pb.Registration{Address: node.Address.String()+":"+strconv.Itoa(int(node.Port))}
 
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
