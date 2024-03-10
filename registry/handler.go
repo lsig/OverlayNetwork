@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"math"
 	"net"
 
 	"github.com/lsig/OverlayNetwork/logger"
@@ -25,7 +26,7 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 		info = "Registration request unsuccessful: Address already exists."
 	}
 
-	id := r.AddNode(registrationAddr)
+	id := r.AddNode(registrationAddr, conn)
 
 	if success {
 		info = fmt.Sprintf("Registration request successful. The number of messaging nodes currently constituting the overlay is (%d).", len(r.Keys))
@@ -56,22 +57,63 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 	}
 }
 
-func verifyAddress(clientAddr string, connAddr string) bool {
-	clientIp, _, err := net.SplitHostPort(clientAddr)
+func (r *Registry) HandleNodeRegistry() {
+	for _, node := range r.Nodes {
+		peers := []*pb.Deregistration{}
+		for key, val := range node.RoutingTable {
+			info := &pb.Deregistration{
+				Id:      key,
+				Address: val,
+			}
+			peers = append(peers, info)
+		}
+		nodeRegistry := &pb.NodeRegistry{
+			NR:    uint32(len(node.RoutingTable)),
+			NoIds: uint32(len(r.Keys)),
+			Peers: peers,
+			Ids:   r.Keys,
+		}
+		chordMessage := &pb.MiniChord{
+			Message: &pb.MiniChord_NodeRegistry{
+				NodeRegistry: nodeRegistry,
+			},
+		}
 
-	if err != nil {
-		return false
+		if err := r.SendMessage(node.Conn, chordMessage); err != nil {
+			errMsg := fmt.Sprintf("Failed to send NodeRegistry request: %v", err)
+			logger.Error(errMsg)
+		}
+		logger.Info(fmt.Sprintf("Succesfully sent NodeRegistry to node %d", node.Id))
+	}
+	r.SetupComplete = true
+}
+
+func (r *Registry) HandleSetup(routingTableSize int) {
+	maxSize := math.Floor(math.Log2(float64(len(r.Nodes))))
+
+	if routingTableSize > int(maxSize) {
+		routingTableSize = int(maxSize)
 	}
 
-	connIp, _, err := net.SplitHostPort(connAddr)
+	r.GenerateRoutingTables(routingTableSize)
 
-	if err != nil {
-		return false
+	nodeRegistry := &pb.NodeRegistry{
+		NR:    0,
+		Peers: []*pb.Deregistration{},
+		NoIds: 0,
+		Ids:   []int32{},
 	}
 
-	if clientIp == connIp {
-		return true
+	miniChordMsg := &pb.MiniChord{
+		Message: &pb.MiniChord_NodeRegistry{
+			NodeRegistry: nodeRegistry,
+		},
 	}
 
-	return false
+	packet := &Packet{
+		Conn:    nil,
+		Content: miniChordMsg,
+	}
+
+	r.Packets <- packet
 }
