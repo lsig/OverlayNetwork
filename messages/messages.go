@@ -1,19 +1,16 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
-	"io"
-	"log"
 	"net"
 	"os"
 	"strconv"
 	"sync"
 
+	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
 	pb "github.com/lsig/OverlayNetwork/pb"
-	"google.golang.org/protobuf/proto"
 )
 
 func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Registry) {
@@ -30,7 +27,7 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 			deregistration := pb.Deregistration{Id: int32(node.ID), Address: node.Address.String()}
 
 			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
-			err := SendMiniChordMessage(registry.Connection, &chord)
+			err := utils.SendMessage(registry.Connection, &chord)
 			if err != nil {
 				fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
 			} else {
@@ -83,8 +80,8 @@ func main() {
 
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
-	SendMiniChordMessage(registry.Connection, &chord)
-	response, err := ReceiveMiniChordMessage(registry.Connection)
+	utils.SendMessage(registry.Connection, &chord)
+	response, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
 		fmt.Printf("error receiving Registration Response: %s\n", err.Error())
 		os.Exit(1)
@@ -92,80 +89,19 @@ func main() {
 
 	fmt.Printf("Received minichord response: %v\n", response)
 
+	logger.Info("Waiting for NodeRegistry packet from registry...\n")
+
+	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		logger.Error(fmt.Sprintf("error receiving NodeRegistry packet from registry: %s", err.Error()))
+		os.Exit(1)
+	}
+
+	logger.Info(fmt.Sprintf("Received NodeRegistry response from registry: %v", nodeRegistry))
+
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
 	go handleStdInput(&wg, &node, registry)
 	wg.Wait()
-}
-
-const I64SIZE int = 8
-
-func SendMiniChordMessage(conn net.Conn, message *pb.MiniChord) (err error) {
-	data, err := proto.Marshal(message)
-	log.Printf("SendMiniChordMessage(): sending %s (%v), %d to %s\n", message, data, len(data), conn.RemoteAddr().String())
-	if err != nil {
-		log.Panicln("Failed to marshal message.", err)
-	}
-
-	// First send the number of bytes in the marshaled message
-	bs := make([]byte, I64SIZE)
-	binary.BigEndian.PutUint64(bs, uint64(len(data)))
-	length, err := conn.Write(bs)
-	if err != nil {
-		log.Printf("SendMiniChordMessage() error: %s\n", err)
-	}
-	if length != I64SIZE {
-		log.Panicln("Short write?")
-	}
-
-	// Send the marshales message
-	length, err = conn.Write(data)
-	if err != nil {
-		log.Printf("SendMiniChordMessage() error: %s\n", err)
-	}
-	if length != len(data) {
-		log.Panicln("Short write?")
-	}
-	return
-}
-
-func ReceiveMiniChordMessage(conn net.Conn) (message *pb.MiniChord, err error) { // First, get the number of bytes to received
-	bs := make([]byte, I64SIZE)
-	length, err := conn.Read(bs)
-	if err != nil {
-		if err != io.EOF {
-			log.Printf("ReceivedMiniChordMessage() read error: %s\n", err)
-		}
-		return
-	}
-	if length != I64SIZE {
-		log.Printf("ReceivedMiniChordMessage() length error: %d\n", length)
-		return
-	}
-	numBytes := uint64(binary.BigEndian.Uint64(bs))
-	// Get the marshaled message from the connection
-	data := make([]byte, numBytes)
-	length, err = conn.Read(data)
-	if err != nil {
-		if err != io.EOF {
-			log.Printf("ReceivedMiniChordMessage() read error: %s\n", err)
-		}
-		return
-	}
-	if uint64(length) != numBytes {
-		log.Printf("ReceivedMiniChordMessage() length error: %d\n", length)
-		return
-	}
-	// Unmarshal the message
-	message = &pb.MiniChord{}
-	err = proto.Unmarshal(data[:length], message)
-	if err != nil {
-		log.Printf("ReceivedMiniChordMessage() unmarshal error: %s\n",
-			err)
-		return
-	}
-	log.Printf("ReceiveMiniChordMessage(): received %s (%v), %d from %s\n",
-		message, data[:length], length, conn.RemoteAddr().String())
-	return
 }

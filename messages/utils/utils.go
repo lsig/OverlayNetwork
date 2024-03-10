@@ -1,14 +1,19 @@
 package utils
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net"
 	"strconv"
 	"strings"
 
+	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
+	pb "github.com/lsig/OverlayNetwork/pb"
+	"google.golang.org/protobuf/proto"
 )
 
 func GetRegistryFromProgramArgs(args []string) (*types.Registry, error) {
@@ -52,4 +57,79 @@ func GenerateRandomPort() int {
 	}
 
 	return randomPort
+}
+
+const I64SIZE int = 8
+
+func ReceiveMessage(conn net.Conn) (*pb.MiniChord, error) {
+	// get length of message
+	bs := make([]byte, I64SIZE)
+	if _, err := io.ReadFull(conn, bs); err != nil {
+		return nil, err
+	}
+	numBytes := int(binary.BigEndian.Uint64(bs))
+
+	// get the amount of data specified by message length above
+	data := make([]byte, numBytes)
+	if _, err := io.ReadFull(conn, data); err != nil {
+		return nil, err
+	}
+
+	// unmarshal the bytes into a minichord message
+	message := &pb.MiniChord{}
+	if err := proto.Unmarshal(data, message); err != nil {
+		return nil, err
+	}
+
+	msg := fmt.Sprintf("Received %v message from %s", GetMiniChordType(message), conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	return message, nil
+}
+
+func SendMessage(conn net.Conn, message *pb.MiniChord) error {
+	data, err := proto.Marshal(message)
+
+	if err != nil {
+		logger.Error("Failed to marshal message")
+		return fmt.Errorf("failed to marshal message %w", err)
+	}
+
+	msg := fmt.Sprintf("Sending %s message to %s", GetMiniChordType(message), conn.RemoteAddr().String())
+	logger.Info(msg)
+
+	bs := make([]byte, I64SIZE)
+	binary.BigEndian.PutUint64(bs, uint64(len(data)))
+
+	if _, err := conn.Write(bs); err != nil {
+		logger.Error("Error sending length message")
+		return fmt.Errorf("error sending message of length %w", err)
+	}
+
+	if _, err := conn.Write(data); err != nil {
+		logger.Error("Error sending message data")
+		return fmt.Errorf("error sending message data %w", err)
+	}
+
+	return nil
+}
+
+func GetMiniChordType(msg *pb.MiniChord) string {
+	switch msg.Message.(type) {
+	case *pb.MiniChord_Registration:
+		return "Registration"
+	case *pb.MiniChord_RegistrationResponse:
+		return "RegistrationResponse"
+	case *pb.MiniChord_Deregistration:
+		return "Deregistration"
+	case *pb.MiniChord_NodeRegistryResponse:
+		return "NodeRegistry"
+	case *pb.MiniChord_TaskFinished:
+		return "TaskFinished"
+	case *pb.MiniChord_ReportTrafficSummary:
+		return "ReportTrafficSummary"
+	default:
+		logger.Warning("unknown minichord message encountered...")
+		return "Unknown"
+	}
 }
