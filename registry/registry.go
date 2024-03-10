@@ -4,11 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
-	"math/rand/v2"
 	"net"
-	"slices"
-	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -16,111 +12,6 @@ import (
 )
 
 const I64SIZE = 8
-
-type Node struct {
-	Id           int32
-	Address      string
-	RoutingTable map[int32]string
-}
-
-func NewNode(id int32, address string) *Node {
-	return &Node{
-		Id:           id,
-		Address:      address,
-		RoutingTable: map[int32]string{},
-	}
-}
-
-type Packet struct {
-	Conn    net.Conn
-	Content *pb.MiniChord
-}
-
-type Registry struct {
-	Nodes         map[int32]*Node
-	Keys          []int32
-	RTableSize    int
-	SetupComplete bool
-	Addresses     chan string
-	NoPackets     int
-	Listener      net.Listener
-	Packets       chan *Packet
-	Locker        sync.Mutex
-}
-
-func NewRegistry(port string) (*Registry, error) {
-	listener, err := net.Listen("tcp", "localhost:"+port)
-	if err != nil {
-		logger.Error("Failed to initilize listener")
-		return nil, err
-	}
-
-	return &Registry{
-		Nodes:         map[int32]*Node{},
-		Keys:          []int32{},
-		RTableSize:    0,
-		SetupComplete: false,
-		Addresses:     make(chan string, 128),
-		NoPackets:     0,
-		Listener:      listener,
-		Packets:       make(chan *Packet, 128),
-	}, nil
-}
-
-func (r *Registry) AddNode(address string) int32 {
-	r.Locker.Lock()
-	defer r.Locker.Unlock()
-	if len(r.Keys) >= 128 {
-		logger.Warning("Number of Nodes should not exceed 128")
-		return -1
-	}
-
-	id := generateId(r.Nodes)
-	node := NewNode(int32(id), address)
-	r.Nodes[node.Id] = node
-	r.Keys = append(r.Keys, node.Id)
-
-	msg := fmt.Sprintf("Node %d added to overlay network", node.Id)
-	logger.Info(msg)
-	return id
-}
-
-func (r *Registry) RemoveNode(id int32) {
-	r.Locker.Lock()
-	defer r.Locker.Unlock()
-	_, ok := r.Nodes[id]
-	if ok {
-		delete(r.Nodes, id)
-		r.Keys = deleteKey(r.Keys, id)
-
-		msg := fmt.Sprintf("Node %d removed from overlay network", id)
-		logger.Info(msg)
-	} else {
-		msg := fmt.Sprintf("Node %d not found", id)
-		logger.Error(msg)
-	}
-}
-
-func (r *Registry) GenerateRoutingTables(size int) {
-	r.Locker.Lock()
-	defer r.Locker.Unlock()
-
-	slices.Sort(r.Keys)
-	noKeys := len(r.Keys)
-
-	for index, key := range r.Keys {
-		for i := range size {
-			neighbour := int(math.Pow(2, float64(i)))
-			neighbourIndex := (index + neighbour) % noKeys
-			neighbourKey := r.Keys[neighbourIndex]
-			neighbourNode := r.Nodes[neighbourKey]
-
-			node := r.Nodes[key]
-			node.RoutingTable[neighbourKey] = neighbourNode.Address
-		}
-	}
-
-}
 
 func (r *Registry) Start() {
 	logger.Info("Registry listener started")
@@ -141,9 +32,9 @@ func (r *Registry) Start() {
 func (r *Registry) MessageProcessing() {
 	go func() {
 		for packet := range r.Packets {
-			switch msgType := packet.Content.Message.(type) {
+			switch msg := packet.Content.Message.(type) {
 			case *pb.MiniChord_Registration:
-				continue
+				r.HandleRegistration(packet.Conn, msg)
 			case *pb.MiniChord_Deregistration:
 				continue
 			case *pb.MiniChord_NodeRegistryResponse:
@@ -153,7 +44,7 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_ReportTrafficSummary:
 				continue
 			default:
-				errMsg := fmt.Sprintf("Unknown message type received: %s", msgType)
+				errMsg := fmt.Sprintf("Unknown message type received: %s", msg)
 				logger.Error(errMsg)
 			}
 		}
@@ -232,28 +123,4 @@ func (r *Registry) HandleConnection(conn net.Conn) {
 			break
 		}
 	}
-}
-
-func generateId(keys map[int32]*Node) int32 {
-	for {
-		id := int32(rand.IntN(128))
-		if _, ok := keys[id]; !ok {
-			return id
-		}
-	}
-}
-
-func deleteKey(keys []int32, id int32) []int32 {
-	index := -1
-	for i, key := range keys {
-		if id == key {
-			index = i
-			break
-		}
-	}
-
-	if index != -1 {
-		keys = append(keys[:index], keys[index+1:]...)
-	}
-	return keys
 }

@@ -9,26 +9,33 @@ import (
 )
 
 func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registration) {
-	address := conn.RemoteAddr().String()
-	var result int32 = -1
-	var info string
 
-	if address != msg.Registration.GetAddress() {
+	var info string
+	success := true
+
+	registrationAddr := msg.Registration.GetAddress()
+
+	if !verifyAddress(registrationAddr, conn.RemoteAddr().String()) {
+		success = false
 		info = "Registration request unsuccessful: Address mismatch."
-		logger.Error(info)
+	}
+
+	if r.AddressExists(msg.Registration.GetAddress()) {
+		success = false
+		info = "Registration request unsuccessful: Address already exists."
+	}
+
+	id := r.AddNode(registrationAddr)
+
+	if success {
+		info = fmt.Sprintf("Registration request successful. The number of messaging nodes currently constituting the overlay is (%d).", len(r.Keys))
+		logger.Info(info)
 	} else {
-		id := r.AddNode(address)
-		if id != -1 {
-			result = id
-			info = fmt.Sprintf("Registration request successful. The number of messaging nodes currently constituting the overlay is (%d).", len(r.Keys))
-		} else {
-			info = "Registration request unsuccessful."
-			logger.Error(info)
-		}
+		logger.Error(info)
 	}
 
 	res := &pb.RegistrationResponse{
-		Result: result,
+		Result: id,
 		Info:   info,
 	}
 
@@ -42,11 +49,29 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 		errMsg := fmt.Sprintf("Failed to send registration response: %v", err)
 		logger.Error(errMsg)
 
-		if result != -1 {
+		if id != -1 {
 			// Remove node if sending response fails
-			r.RemoveNode(result)
+			r.RemoveNode(id)
 		}
 	}
+}
 
-	logger.Info(info)
+func verifyAddress(clientAddr string, connAddr string) bool {
+	clientIp, _, err := net.SplitHostPort(clientAddr)
+
+	if err != nil {
+		return false
+	}
+
+	connIp, _, err := net.SplitHostPort(connAddr)
+
+	if err != nil {
+		return false
+	}
+
+	if clientIp == connIp {
+		return true
+	}
+
+	return false
 }
