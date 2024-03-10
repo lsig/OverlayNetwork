@@ -84,11 +84,13 @@ func main() {
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
 	SendMiniChordMessage(registry.Connection, &chord)
-	// response, err := ReceiveMiniChordMessage(registry.Connection)
-	// if err != nil {
-	// 	fmt.Printf("error receiving Registration Response\n", err.Error())
-	// 	os.Exit(1)
-	// }
+	response, err := ReceiveMiniChordMessage(registry.Connection)
+	if err != nil {
+		fmt.Printf("error receiving Registration Response\n", err.Error())
+		os.Exit(1)
+	}
+
+	fmt.Printf("Received minichord response: %v\n", response)
 
 	wg := sync.WaitGroup{}
 
