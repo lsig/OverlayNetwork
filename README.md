@@ -1,6 +1,6 @@
 # OverlayNetwork
 
-# Work schedule
+# Work methodology
 
 When we started working on the project, we decided that Logi would be responsible for the [registry.go](./registry/registry.go) part of the code, and Kristófer would be responsible for the [messages.go](./messages/messages.go) part. This worked well, as long as we were working on the same functionality at the same time (we met up at RU to work together on the code), as the message nodes and registry are so intertwined.
 
