@@ -9,9 +9,10 @@ type Registry struct {
 }
 
 type NodeInfo struct {
-	ID      int
-	Address net.IP
-	Port    uint16
+	ID       int
+	Address  net.IP
+	Port     uint16
+	Listener net.Listener
 }
 
 type Network struct {

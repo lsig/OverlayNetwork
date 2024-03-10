@@ -40,68 +40,97 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 		}
 	}
 }
-func main() {
-	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 
+func CreateListenerNode() (*types.NodeInfo, error) {
 	port := utils.GenerateRandomPort()
 	node := types.NodeInfo{Address: net.ParseIP("127.0.0.1"), Port: uint16(port)}
-	network := types.Network{}
-	logger.Infof("network: %v\n", network)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
-		fmt.Println("Error listening:", err.Error())
-		os.Exit(1)
+		return nil, fmt.Errorf("error listening:", err.Error())
 	}
-
-	defer listener.Close()
 	logger.Infof("Listening on port %d", port)
 
-	logger.Infof("registry: %v:%v", registry.Address.String(), strconv.Itoa(int(registry.Port)))
+	node.Listener = listener
+
+	return &node, nil
+}
+
+func ConnectToRegistry(registry *types.Registry) error {
 	tcpServer, err := net.ResolveTCPAddr("tcp", registry.Address.String()+":"+strconv.Itoa(int(registry.Port)))
 	if err != nil {
-		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
-		os.Exit(1)
+		return fmt.Errorf("error creating tcp connection to registry: %s", err.Error())
 	}
+
 	connection, err := net.DialTCP("tcp", nil, tcpServer)
 	if err != nil {
-		fmt.Println("Error creating tcp connection to registry: \n", err.Error())
-		os.Exit(1)
+		return fmt.Errorf("error creating tcp connection to registry: %s", err.Error())
 	}
-	logger.Info("connected to registry")
-	registry.Connection = connection
-
 	logger.Infof("registry connection on port: %v", connection.LocalAddr().String())
-	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
 
+	registry.Connection = connection
+	return nil
+}
+
+func Register(node *types.NodeInfo, registry *types.Registry) (*pb.MiniChord, error) {
+	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
 	utils.SendMessage(registry.Connection, &chord)
 	response, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
-		fmt.Printf("error receiving Registration Response: %s\n", err.Error())
-		os.Exit(1)
+		return nil, fmt.Errorf("error receiving Registration Response: %s", err.Error())
 	}
-
 	logger.Infof("Received minichord response: %v", response)
 
-	logger.Info("Waiting for NodeRegistry packet from registry...")
+	return response, nil
+}
 
-	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
+func main() {
+	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 	if err != nil {
-		logger.Error(fmt.Sprintf("error receiving NodeRegistry packet from registry: %s", err.Error()))
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 
+	// create Listener Node
+	node, err := CreateListenerNode()
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	defer node.Listener.Close()
+
+	// Connect to registry
+	err = ConnectToRegistry(registry)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// send Registration
+	_, err = Register(node, registry)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// wait for Node Registry
+	logger.Info("Waiting for NodeRegistry packet from registry...")
+	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		logger.Errorf("error receiving NodeRegistry packet from registry: %s", err.Error())
+		os.Exit(1)
+	}
 	logger.Infof("Received NodeRegistry response from registry: %v", nodeRegistry)
+
+	// Creating network
+	network := types.Network{}
+	logger.Infof("network: %v\n", network)
 
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
-	go handleStdInput(&wg, &node, registry)
+	go handleStdInput(&wg, node, registry)
 	wg.Wait()
 }
