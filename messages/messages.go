@@ -86,7 +86,7 @@ func main() {
 	SendMiniChordMessage(registry.Connection, &chord)
 	response, err := ReceiveMiniChordMessage(registry.Connection)
 	if err != nil {
-		fmt.Printf("error receiving Registration Response\n", err.Error())
+		fmt.Printf("error receiving Registration Response: %s\n", err.Error())
 		os.Exit(1)
 	}
 
