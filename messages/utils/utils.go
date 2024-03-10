@@ -16,15 +16,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func GetRegistryFromProgramArgs(args []string) (*types.Registry, error) {
-	usageError := fmt.Errorf("usage: go run messages/messages.go <registry-host>:<registry-port>")
-	if len(args) != 2 {
-		return nil, usageError
-	}
-
-	addressInfo := strings.Split(args[1], ":")
+func GetAddressFromString(addrString string) (*types.Address, error) {
+	addressInfo := strings.Split(addrString, ":")
 	if len(addressInfo) != 2 {
-		return nil, usageError
+		return nil, fmt.Errorf("semicolon missing in address string: %s", addrString)
 	}
 
 	if addressInfo[0] == "localhost" {
@@ -34,11 +29,25 @@ func GetRegistryFromProgramArgs(args []string) (*types.Registry, error) {
 	address := net.ParseIP(addressInfo[0])
 	port, err := strconv.Atoi(addressInfo[1])
 
-	if address == nil || err != nil || port <= 0 || port >= 65536 {
+	if address == nil || err != nil || port <= 1024 || port >= 65536 {
+		return nil, fmt.Errorf("invalid address or port")
+	}
+
+	return &types.Address{Host: address, Port: uint16(port)}, nil
+}
+
+func GetRegistryFromProgramArgs(args []string) (*types.Registry, error) {
+	usageError := fmt.Errorf("usage: go run messages/messages.go <registry-host>:<registry-port>")
+	if len(args) != 2 {
 		return nil, usageError
 	}
 
-	registry := types.Registry{Address: address, Port: uint16(port)}
+	address, err := GetAddressFromString(args[1])
+	if err != nil {
+		return nil, usageError
+	}
+
+	registry := types.Registry{Address: *address}
 
 	return &registry, nil
 }
