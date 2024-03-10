@@ -12,13 +12,15 @@ type Node struct {
 	Id           int32
 	Address      string
 	RoutingTable map[int32]string
+	Conn         net.Conn
 }
 
-func NewNode(id int32, address string) *Node {
+func NewNode(id int32, address string, connection net.Conn) *Node {
 	return &Node{
 		Id:           id,
 		Address:      address,
 		RoutingTable: map[int32]string{},
+		Conn: connection,
 	}
 }
 

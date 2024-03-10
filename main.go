@@ -15,7 +15,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	r.Start()
+	go r.Start()
+	go r.CommandLineInterface()
 
 	select {}
 }

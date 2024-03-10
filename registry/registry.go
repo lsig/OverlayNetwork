@@ -1,10 +1,14 @@
 package registry
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -29,6 +33,30 @@ func (r *Registry) Start() {
 	}
 }
 
+func (r *Registry) CommandLineInterface() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		command := strings.TrimSpace(scanner.Text())
+		switch {
+		case command == "list":
+			continue
+		case command == "route":
+			continue
+		case strings.HasPrefix(command, "setup "):
+			param := strings.TrimPrefix(command, "setup ")
+			n, err := strconv.Atoi(param)
+			if err != nil {
+				logger.Error("Invalid number of nodes:" + param)
+				continue
+			}
+			r.HandleSetup(n)
+		case strings.HasPrefix(command, "start "):
+			continue
+		}
+	}
+
+}
+
 func (r *Registry) MessageProcessing() {
 	go func() {
 		for packet := range r.Packets {
@@ -37,6 +65,8 @@ func (r *Registry) MessageProcessing() {
 				r.HandleRegistration(packet.Conn, msg)
 			case *pb.MiniChord_Deregistration:
 				continue
+			case *pb.MiniChord_NodeRegistry:
+				r.HandleNodeRegistry()
 			case *pb.MiniChord_NodeRegistryResponse:
 				continue
 			case *pb.MiniChord_TaskFinished:
