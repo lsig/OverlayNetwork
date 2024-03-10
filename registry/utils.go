@@ -9,7 +9,6 @@ import (
 	"math/rand/v2"
 )
 
-
 func (r *Registry) AddNode(address string) int32 {
 	r.Locker.Lock()
 	defer r.Locker.Unlock()
@@ -63,6 +62,15 @@ func (r *Registry) GenerateRoutingTables(size int) {
 		}
 	}
 
+}
+
+func (r *Registry) AddressExists(address string) bool {
+	for _, node := range r.Nodes {
+		if address == node.Address {
+			return true
+		}
+	}
+	return false
 }
 
 func generateId(keys map[int32]*Node) int32 {

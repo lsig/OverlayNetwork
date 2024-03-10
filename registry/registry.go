@@ -32,9 +32,9 @@ func (r *Registry) Start() {
 func (r *Registry) MessageProcessing() {
 	go func() {
 		for packet := range r.Packets {
-			switch msgType := packet.Content.Message.(type) {
+			switch msg := packet.Content.Message.(type) {
 			case *pb.MiniChord_Registration:
-				continue
+				r.HandleRegistration(packet.Conn, msg)
 			case *pb.MiniChord_Deregistration:
 				continue
 			case *pb.MiniChord_NodeRegistryResponse:
@@ -44,7 +44,7 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_ReportTrafficSummary:
 				continue
 			default:
-				errMsg := fmt.Sprintf("Unknown message type received: %s", msgType)
+				errMsg := fmt.Sprintf("Unknown message type received: %s", msg)
 				logger.Error(errMsg)
 			}
 		}
