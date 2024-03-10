@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
@@ -24,7 +23,7 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 		case "exit":
 			fmt.Println("exiting...")
 
-			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.String()}
+			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.ToString()}
 
 			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
 			err := utils.SendMessage(registry.Connection, &chord)
@@ -43,7 +42,7 @@ func handleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 
 func CreateListenerNode() (*types.NodeInfo, error) {
 	port := utils.GenerateRandomPort()
-	node := types.NodeInfo{Address: net.ParseIP("127.0.0.1"), Port: uint16(port)}
+	node := types.NodeInfo{Address: types.Address{Host: net.ParseIP("127.0.0.1"), Port: uint16(port)}}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port)) // remove "localhost" if used externally. This will trigger annoying firewall prompts however
 	if err != nil {
@@ -57,7 +56,7 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 }
 
 func ConnectToRegistry(registry *types.Registry) error {
-	tcpServer, err := net.ResolveTCPAddr("tcp", registry.Address.String()+":"+strconv.Itoa(int(registry.Port)))
+	tcpServer, err := net.ResolveTCPAddr("tcp", registry.Address.ToString())
 	if err != nil {
 		return fmt.Errorf("error creating tcp connection to registry: %s", err.Error())
 	}
@@ -73,7 +72,7 @@ func ConnectToRegistry(registry *types.Registry) error {
 }
 
 func Register(node *types.NodeInfo, registry *types.Registry) (*pb.RegistrationResponse, error) {
-	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
+	message := pb.Registration{Address: node.Address.ToString()}
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
 	utils.SendMessage(registry.Connection, &chord)
@@ -105,6 +104,24 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 		return nil, fmt.Errorf("error when parsing nodeRegistry packet")
 	}
 	return nr.NodeRegistry, nil
+}
+
+func SetupNetwork(nodeRegistry *pb.NodeRegistry) (*types.Network, error) {
+	network := types.Network{}
+	// routingTable := make()
+	// logger.Debugf("Peers: %v", nodeRegistry.Peers)
+
+	for _, peer := range nodeRegistry.Peers {
+		peerAddress, err := utils.GetAddressFromString(peer.Address)
+		if err != nil {
+			return nil, err
+		}
+		externalNode := types.ExternalNode{Id: peer.Id, Address: *peerAddress}
+		network.RoutingTable = append(network.RoutingTable, externalNode)
+	}
+	logger.Debugf("RoutingTable: %v", network.RoutingTable)
+
+	return &network, nil
 }
 
 func main() {
@@ -147,7 +164,11 @@ func main() {
 	logger.Debugf("Ids: %v", nodeRegistry.Ids)
 
 	// Creating network
-	network := types.Network{}
+	network, err := SetupNetwork(nodeRegistry)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
 	logger.Debugf("network: %v\n", network)
 
 	wg := sync.WaitGroup{}
