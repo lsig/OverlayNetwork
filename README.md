@@ -14,7 +14,7 @@ Like all other students, we used AI tools like ChatGPT to help get us started by
 
 Here are links to our ChatGPT threads:
 
-[Logi's chat](https://missing.com)
+[Logi's chat](https://chat.openai.com/share/dd30e84f-4cf0-4f95-9960-32acdf8903c5)
 
 [Kristófer's chat](https://chat.openai.com/share/e9d11afe-72de-4886-832f-30e1319ba59b)
 
