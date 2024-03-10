@@ -106,7 +106,7 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 	return nr.NodeRegistry, nil
 }
 
-func SetupNetwork(nodeRegistry *pb.NodeRegistry) (*types.Network, error) {
+func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.Network, error) {
 	network := types.Network{}
 	// routingTable := make()
 	// logger.Debugf("Peers: %v", nodeRegistry.Peers)
@@ -119,7 +119,15 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry) (*types.Network, error) {
 		externalNode := types.ExternalNode{Id: peer.Id, Address: *peerAddress}
 		network.RoutingTable = append(network.RoutingTable, externalNode)
 	}
+
+	for _, id := range nodeRegistry.Ids {
+		if id != node.Id {
+			network.Nodes = append(network.Nodes, id)
+		}
+	}
+
 	logger.Debugf("RoutingTable: %v", network.RoutingTable)
+	logger.Debugf("Nodes: %v", network.Nodes)
 
 	return &network, nil
 }
@@ -163,8 +171,8 @@ func main() {
 
 	logger.Debugf("Ids: %v", nodeRegistry.Ids)
 
-	// Creating network
-	network, err := SetupNetwork(nodeRegistry)
+	// setup network
+	network, err := SetupNetwork(nodeRegistry, node)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
