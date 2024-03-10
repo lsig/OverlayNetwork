@@ -89,9 +89,15 @@ func (r *Registry) HandleNodeRegistry() {
 }
 
 func (r *Registry) HandleSetup(routingTableSize int) {
+	if r.SetupComplete {
+		logger.Error("Setup already complete")
+		return
+	}
+
 	maxSize := math.Floor(math.Log2(float64(len(r.Nodes))))
 
 	if routingTableSize > int(maxSize) {
+		logger.Warning(fmt.Sprintf("Routing table size %d to large. Set size to max %d", routingTableSize, int(maxSize)))
 		routingTableSize = int(maxSize)
 	}
 
