@@ -78,11 +78,18 @@ func main() {
 	fmt.Println("connected to registry")
 	registry.Connection = connection
 
-	message := pb.Registration{Address: node.Address.String()+":"+strconv.Itoa(int(node.Port))}
+	fmt.Printf("registry connection on port: %v\n", connection.LocalAddr().String())
+	message := pb.Registration{Address: node.Address.String() + ":" + strconv.Itoa(int(node.Port))}
 
 	chord := pb.MiniChord{Message: &pb.MiniChord_Registration{Registration: &message}}
 
 	SendMiniChordMessage(registry.Connection, &chord)
+	// response, err := ReceiveMiniChordMessage(registry.Connection)
+	// if err != nil {
+	// 	fmt.Printf("error receiving Registration Response\n", err.Error())
+	// 	os.Exit(1)
+	// }
+
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
