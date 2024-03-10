@@ -67,3 +67,11 @@ func Error(message string) {
 		logger.errorLogger.Println(message)
 	}
 }
+
+func Errorf(format string, a ...any) {
+	message := fmt.Sprintf(format, a...)
+
+	if logger.Level <= ErrorLevel {
+		logger.errorLogger.Println(message)
+	}
+}
