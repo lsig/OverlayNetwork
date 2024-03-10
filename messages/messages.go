@@ -81,12 +81,13 @@ func Register(node *types.NodeInfo, registry *types.Registry) (*pb.RegistrationR
 	if err != nil {
 		return nil, fmt.Errorf("error receiving Registration Response: %s", err.Error())
 	}
-	logger.Infof("Received minichord response: %v", response)
 
 	nr, ok := response.GetMessage().(*pb.MiniChord_RegistrationResponse)
 	if !ok {
 		return nil, fmt.Errorf("error when parsing registrationResponse packet")
 	}
+
+	logger.Infof("my Id is: %d", nr.RegistrationResponse.Result)
 
 	return nr.RegistrationResponse, nil
 }
@@ -143,11 +144,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Infof("Ids: %v", nodeRegistry.Ids)
+	logger.Debugf("Ids: %v", nodeRegistry.Ids)
 
 	// Creating network
 	network := types.Network{}
-	logger.Infof("network: %v\n", network)
+	logger.Debugf("network: %v\n", network)
 
 	wg := sync.WaitGroup{}
 
