@@ -47,7 +47,7 @@ func GenerateRandomPort() int {
 	randomPort := -1
 
 	for randomPort < 0 {
-		randomPort = rand.Intn(int(math.Pow(2, 16)))
+		randomPort = rand.Intn(int(math.Pow(2, 16))-1024) + 1024 // first ca 1024 ports are restricted for OS
 		conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", randomPort))
 		if err == nil {
 			fmt.Printf("server live on: %v\n", conn.RemoteAddr().String())
