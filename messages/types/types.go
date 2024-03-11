@@ -26,8 +26,9 @@ type NodeInfo struct {
 }
 
 type ExternalNode struct {
-	Id      int32
-	Address Address
+	Id         int32
+	Address    Address
+	Connection net.Conn
 }
 
 type Network struct {

@@ -138,24 +138,48 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
 		if err != nil {
 			logger.Errorf("error handling incoming connection: %s", err.Error())
 		}
-		logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().Network())
+		logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
 	}
 }
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 	defer wg.Done()
 
+	// for _, peer := range network.RoutingTable {
+	// 	tcpServer, err := net.ResolveTCPAddr("tcp", peer.Address.ToString())
+	// 	if err != nil {
+	// 		logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
+	// 	}
+	// 	conn, err := net.DialTCP("tcp", nil, tcpServer)
+	// 	if err != nil {
+	// 		logger.Errorf("error dialing messaging node: %s", err.Error())
+	// 	} else {
+	// 		peer.Connection = conn
+	// 		logger.Infof("Connected to node %d at %s", peer.Id, conn.RemoteAddr().String())
+	// 	}
+	// }
+}
+
+func ConnectToNeighbours(network *types.Network) {
 	for _, peer := range network.RoutingTable {
-		tcpServer, err := net.ResolveTCPAddr("tcp", peer.Address.ToString())
-		if err != nil {
-			logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
-		}
-		conn, err := net.DialTCP("tcp", nil, tcpServer)
-		if err != nil {
-			logger.Errorf("error dialing messaging node: %s", err.Error())
-			}
-	}
+		go func(p types.ExternalNode) {
+			// dial peer until connection is made
+			for p.Connection == nil {
+				tcpServer, err := net.ResolveTCPAddr("tcp", p.Address.ToString())
+				if err != nil {
+					logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
 				}
+				conn, err := net.DialTCP("tcp", nil, tcpServer)
+				if err != nil {
+					logger.Errorf("error dialing messaging node: %s", err.Error())
+				} else {
+					p.Connection = conn
+					logger.Infof("Connected to node %d at %s", p.Id, conn.RemoteAddr().String())
+				}
+			}
+		}(peer)
+	}
+}
 
 func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
 	for {
@@ -219,7 +243,10 @@ func main() {
 	wg.Add(4)
 
 	go HandleListener(&wg, node)
+	ConnectToNeighbours(network)
+
 	go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)
+	go handleStdInput(&wg, node, registry)
 	wg.Wait()
 }
