@@ -153,8 +153,18 @@ func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 		conn, err := net.DialTCP("tcp", nil, tcpServer)
 		if err != nil {
 			logger.Errorf("error dialing messaging node: %s", err.Error())
+			}
+	}
+				}
+
+func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
+	for {
+		pbMessage, err := utils.ReceiveMessage(registry.Connection)
+		if err != nil {
+			logger.Errorf("error when receiving registry message: %s", err.Error())
+		} else {
+			logger.Debugf("received pbMessage from registry: %v", pbMessage)
 		}
-		logger.Infof("Connected to node %d at %s", peer.Id, conn.RemoteAddr().String())
 	}
 }
 
@@ -206,10 +216,10 @@ func main() {
 	logger.Debugf("network: %v\n", network)
 
 	wg := sync.WaitGroup{}
+	wg.Add(4)
 
-	wg.Add(3)
-	go handleStdInput(&wg, node, registry)
 	go HandleListener(&wg, node)
+	go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)
 	wg.Wait()
 }
