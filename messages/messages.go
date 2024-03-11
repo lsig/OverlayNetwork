@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -95,6 +96,9 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 	logger.Info("Waiting for NodeRegistry packet from registry...")
 	nodeRegistry, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
+		if err == io.EOF {
+			return nil, fmt.Errorf("registry has crashed, shutting down")
+		}
 		return nil, fmt.Errorf("error receiving NodeRegistry packet from registry: %s", err.Error())
 	}
 	logger.Infof("Received NodeRegistry packet from registry: %v", nodeRegistry)
@@ -185,6 +189,11 @@ func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
 	for {
 		pbMessage, err := utils.ReceiveMessage(registry.Connection)
 		if err != nil {
+			if err == io.EOF {
+				logger.Error("registry has crashed, shutting down...")
+				registry.Connection.Close()
+				os.Exit(1)
+			}
 			logger.Errorf("error when receiving registry message: %s", err.Error())
 		} else {
 			logger.Debugf("received pbMessage from registry: %v", pbMessage)
