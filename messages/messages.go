@@ -132,10 +132,30 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 
 func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
 	defer wg.Done()
+
+	for {
+		conn, err := node.Listener.Accept()
+		if err != nil {
+			logger.Errorf("error handling incoming connection: %s", err.Error())
+		}
+		logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().Network())
+	}
 }
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 	defer wg.Done()
+
+	for _, peer := range network.RoutingTable {
+		tcpServer, err := net.ResolveTCPAddr("tcp", peer.Address.ToString())
+		if err != nil {
+			logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
+		}
+		conn, err := net.DialTCP("tcp", nil, tcpServer)
+		if err != nil {
+			logger.Errorf("error dialing messaging node: %s", err.Error())
+		}
+		logger.Infof("Connected to node %d at %s", peer.Id, conn.RemoteAddr().String())
+	}
 }
 
 func main() {
