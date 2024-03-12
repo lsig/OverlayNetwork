@@ -51,7 +51,13 @@ func (r *Registry) CommandLineInterface() {
 			}
 			r.HandleSetup(n)
 		case strings.HasPrefix(command, "start "):
-			continue
+			param := strings.TrimPrefix(command, "setup ")
+			n, err := strconv.Atoi(param)
+			if err != nil {
+				logger.Error("Invalid number of Packets:" + param)
+				continue
+			}
+			r.HandleStart(n)
 		}
 	}
 
@@ -69,6 +75,8 @@ func (r *Registry) MessageProcessing() {
 				r.HandleNodeRegistry()
 			case *pb.MiniChord_NodeRegistryResponse:
 				continue
+			case *pb.MiniChord_InitiateTask:
+				r.HandleInitiateTask(packet.Content)
 			case *pb.MiniChord_TaskFinished:
 				continue
 			case *pb.MiniChord_ReportTrafficSummary:

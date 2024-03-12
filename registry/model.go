@@ -20,7 +20,7 @@ func NewNode(id int32, address string, connection net.Conn) *Node {
 		Id:           id,
 		Address:      address,
 		RoutingTable: map[int32]string{},
-		Conn: connection,
+		Conn:         connection,
 	}
 }
 
@@ -34,6 +34,7 @@ type Registry struct {
 	Keys          []int32
 	RTableSize    int
 	SetupComplete bool
+	StartComplete bool
 	Addresses     chan string
 	NoPackets     int
 	Listener      net.Listener
@@ -53,6 +54,7 @@ func NewRegistry(port string) (*Registry, error) {
 		Keys:          []int32{},
 		RTableSize:    0,
 		SetupComplete: false,
+		StartComplete: false,
 		Addresses:     make(chan string, 128),
 		NoPackets:     0,
 		Listener:      listener,

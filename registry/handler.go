@@ -88,6 +88,17 @@ func (r *Registry) HandleNodeRegistry() {
 	r.SetupComplete = true
 }
 
+func (r *Registry) HandleInitiateTask(task *pb.MiniChord) {
+	for _, node := range r.Nodes {
+		if err := r.SendMessage(node.Conn, task); err != nil {
+			errMsg := fmt.Sprintf("Failed to send InitiateTask request: %v", err)
+			logger.Error(errMsg)
+		}
+		logger.Info(fmt.Sprintf("Succesfully sent InitiateTask to node %d", node.Id))
+	}
+	r.StartComplete = true
+}
+
 func (r *Registry) HandleSetup(routingTableSize int) {
 	if r.SetupComplete {
 		logger.Error("Setup already complete")
@@ -122,4 +133,38 @@ func (r *Registry) HandleSetup(routingTableSize int) {
 	}
 
 	r.Packets <- packet
+}
+
+func (r *Registry) HandleStart(nopackets int) {
+	if !r.SetupComplete {
+		logger.Error("Setup not complete")
+		return
+	}
+
+	if r.StartComplete {
+		logger.Error("Start already completed")
+		return
+	}
+
+	if nopackets < 1 {
+		logger.Error("Number of packets must be positive")
+		return
+	}
+
+	start := &pb.InitiateTask{
+		Packets: uint32(nopackets),
+	}
+
+	miniChordMsg := &pb.MiniChord{
+		Message: &pb.MiniChord_InitiateTask{
+			InitiateTask: start,
+		},
+	}
+
+	msg := &Packet{
+		Conn:    nil,
+		Content: miniChordMsg,
+	}
+
+	r.Packets <- msg
 }
