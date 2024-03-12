@@ -51,7 +51,7 @@ func (r *Registry) CommandLineInterface() {
 			}
 			r.HandleSetup(n)
 		case strings.HasPrefix(command, "start "):
-			param := strings.TrimPrefix(command, "setup ")
+			param := strings.TrimPrefix(command, "start ")
 			n, err := strconv.Atoi(param)
 			if err != nil {
 				logger.Error("Invalid number of Packets:" + param)
