@@ -168,3 +168,15 @@ func (r *Registry) HandleStart(nopackets int) {
 
 	r.Packets <- msg
 }
+
+func (r *Registry) HandleList() {
+	if len(r.Keys) == 0 {
+		logger.Error("No node is connected to the registry")
+	}
+	fmt.Println("Node IDs and Addresses:")
+	fmt.Println("-----------------------")
+
+	for _, node := range r.Nodes {
+		fmt.Printf("ID: %d, Address: %s\n", node.Id, node.Address)
+	}
+}

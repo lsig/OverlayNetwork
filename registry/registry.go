@@ -39,7 +39,7 @@ func (r *Registry) CommandLineInterface() {
 		command := strings.TrimSpace(scanner.Text())
 		switch {
 		case command == "list":
-			continue
+			r.HandleList()
 		case command == "route":
 			continue
 		case strings.HasPrefix(command, "setup "):
