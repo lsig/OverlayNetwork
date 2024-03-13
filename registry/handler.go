@@ -10,6 +10,10 @@ import (
 )
 
 func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registration) {
+	if r.SetupComplete {
+		logger.Error("Can't register after setup is complete")
+		return
+	}
 
 	var info string
 	success := true
@@ -172,6 +176,7 @@ func (r *Registry) HandleStart(nopackets int) {
 func (r *Registry) HandleList() {
 	if len(r.Keys) == 0 {
 		logger.Error("No node is connected to the registry")
+		return
 	}
 	fmt.Println("Node IDs and Addresses:")
 	fmt.Println("-----------------------")
@@ -179,4 +184,22 @@ func (r *Registry) HandleList() {
 	for _, node := range r.Nodes {
 		fmt.Printf("ID: %d, Address: %s\n", node.Id, node.Address)
 	}
+}
+
+func (r *Registry) HandleRouteCmd() {
+	if !r.SetupComplete {
+		logger.Error("Setup not complete, routing tables have not been calculated")
+		return
+	}
+	for _, node := range r.Nodes {
+		fmt.Printf("Routing Table for Node %d:\n", node.Id)
+		fmt.Println("Node ID\tAddress")
+		fmt.Println("-------\t-------")
+
+		for id, address := range node.RoutingTable {
+			fmt.Printf("%d\t%s\n", id, address)
+		}
+		fmt.Println()
+	}
+
 }

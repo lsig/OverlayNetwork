@@ -41,7 +41,7 @@ func (r *Registry) CommandLineInterface() {
 		case command == "list":
 			r.HandleList()
 		case command == "route":
-			continue
+			r.HandleRouteCmd()
 		case strings.HasPrefix(command, "setup "):
 			param := strings.TrimPrefix(command, "setup ")
 			n, err := strconv.Atoi(param)
