@@ -70,11 +70,11 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_Registration:
 				r.HandleRegistration(packet.Conn, msg)
 			case *pb.MiniChord_Deregistration:
-				continue
+				r.HandleDeregistration(packet.Conn, msg)
 			case *pb.MiniChord_NodeRegistry:
 				r.HandleNodeRegistry()
 			case *pb.MiniChord_NodeRegistryResponse:
-				continue
+				r.HandleNodeRegistryResponse(msg)
 			case *pb.MiniChord_InitiateTask:
 				r.HandleInitiateTask(packet.Content)
 			case *pb.MiniChord_TaskFinished:
