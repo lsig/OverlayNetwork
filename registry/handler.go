@@ -25,7 +25,7 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 		info = "Registration request unsuccessful: Address mismatch."
 	}
 
-	if r.AddressExists(msg.Registration.GetAddress()) {
+	if r.AddressExists(registrationAddr) {
 		success = false
 		info = "Registration request unsuccessful: Address already exists."
 	}
