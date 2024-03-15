@@ -33,9 +33,12 @@ type Registry struct {
 	Nodes         map[int32]*Node
 	Keys          []int32
 	RTableSize    int
+	SetupSent     bool
 	SetupComplete bool
 	StartComplete bool
 	NoPackets     int
+	NoSetupNodes  int
+	NoFinished int
 	Listener      net.Listener
 	Packets       chan *Packet
 	Locker        sync.Mutex
@@ -52,9 +55,11 @@ func NewRegistry(port string) (*Registry, error) {
 		Nodes:         map[int32]*Node{},
 		Keys:          []int32{},
 		RTableSize:    0,
+		SetupSent:     false,
 		SetupComplete: false,
 		StartComplete: false,
 		NoPackets:     0,
+		NoSetupNodes:  0,
 		Listener:      listener,
 		Packets:       make(chan *Packet, 128),
 	}, nil

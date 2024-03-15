@@ -11,8 +11,8 @@ import (
 )
 
 func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registration) {
-	if r.SetupComplete {
-		logger.Error("Can't register after setup is complete")
+	if r.SetupSent {
+		logger.Error("Can't register after setup has been executed")
 		return
 	}
 
@@ -63,8 +63,8 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 }
 
 func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregistration) {
-	if r.SetupComplete {
-		logger.Error("Can't Deregister after setup is complete")
+	if r.SetupSent {
+		logger.Error("Can't Deregister after setup has executed")
 		return
 	}
 
@@ -142,13 +142,19 @@ func (r *Registry) HandleNodeRegistry() {
 		}
 		logger.Info(fmt.Sprintf("Succesfully sent NodeRegistry to node %d", node.Id))
 	}
-	r.SetupComplete = true
+	r.SetupSent = true
 }
 
 func (r *Registry) HandleNodeRegistryResponse(res *pb.MiniChord_NodeRegistryResponse) {
-	if res.NodeRegistryResponse.Result < 0 {
+	if res.NodeRegistryResponse.Result > 127 {
 		logger.Error("Node Failed to connect to Nodes in Routing table. Exiting ...")
 		os.Exit(1)
+	}
+	r.NoSetupNodes++
+
+	if r.NoSetupNodes == len(r.Keys) {
+		logger.Info("The registry is now ready to initiate tasks.")
+		r.SetupComplete = true
 	}
 }
 
@@ -163,8 +169,21 @@ func (r *Registry) HandleInitiateTask(task *pb.MiniChord) {
 	r.StartComplete = true
 }
 
+func (r *Registry) HandleTaskFinished(msg *pb.MiniChord_TaskFinished) {
+	if msg.TaskFinished.Id > 127 {
+		logger.Error("Node Failed to Finish Sending Messages. Exiting ...")
+		os.Exit(1)
+	}
+
+	r.NoFinished++
+
+	if r.NoFinished == len(r.Keys) {
+
+	}
+}
+
 func (r *Registry) HandleSetup(routingTableSize int) {
-	if r.SetupComplete {
+	if r.SetupSent {
 		logger.Error("Setup already complete")
 		return
 	}
@@ -247,7 +266,7 @@ func (r *Registry) HandleList() {
 }
 
 func (r *Registry) HandleRouteCmd() {
-	if !r.SetupComplete {
+	if !r.SetupSent {
 		logger.Error("Setup not complete, routing tables have not been calculated")
 		return
 	}
