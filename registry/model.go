@@ -35,7 +35,6 @@ type Registry struct {
 	RTableSize    int
 	SetupComplete bool
 	StartComplete bool
-	Addresses     chan string
 	NoPackets     int
 	Listener      net.Listener
 	Packets       chan *Packet
@@ -55,7 +54,6 @@ func NewRegistry(port string) (*Registry, error) {
 		RTableSize:    0,
 		SetupComplete: false,
 		StartComplete: false,
-		Addresses:     make(chan string, 128),
 		NoPackets:     0,
 		Listener:      listener,
 		Packets:       make(chan *Packet, 128),
