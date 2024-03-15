@@ -29,7 +29,7 @@ func (r *Registry) AddNode(address string, connection net.Conn) int32 {
 	return id
 }
 
-func (r *Registry) RemoveNode(id int32) {
+func (r *Registry) RemoveNode(id int32) int32 {
 	r.Locker.Lock()
 	defer r.Locker.Unlock()
 	_, ok := r.Nodes[id]
@@ -39,9 +39,11 @@ func (r *Registry) RemoveNode(id int32) {
 
 		msg := fmt.Sprintf("Node %d removed from overlay network", id)
 		logger.Info(msg)
+		return id
 	} else {
 		msg := fmt.Sprintf("Node %d not found", id)
 		logger.Error(msg)
+		return -1
 	}
 }
 

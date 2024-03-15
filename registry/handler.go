@@ -61,6 +61,58 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 	}
 }
 
+func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregistration) {
+	if r.SetupComplete {
+		logger.Error("Can't Deregister after setup is complete")
+		return
+	}
+
+	var info string
+	success := true
+
+	registrationAddr := msg.Deregistration.GetAddress()
+
+	if !verifyAddress(registrationAddr, conn.RemoteAddr().String()) {
+		success = false
+		info = "Deregistration request unsuccessful: Address mismatch."
+	}
+
+	if !r.AddressExists(registrationAddr) {
+		success = false
+		info = "Deregistration request unsuccessful: Address does not exist."
+	}
+
+	id := r.RemoveNode(msg.Deregistration.GetId())
+
+	if success {
+		info = fmt.Sprintf("Deregistration request successful. Node Id: (%d) not longer exists. The number of messaging nodes currently constituting the overlay is (%d).", id, len(r.Keys))
+		logger.Info(info)
+	} else {
+		logger.Error(info)
+	}
+
+	res := &pb.DeregistrationResponse{
+		Result: id,
+		Info:   info,
+	}
+
+	chordMessage := &pb.MiniChord{
+		Message: &pb.MiniChord_DeregistrationResponse{
+			DeregistrationResponse: res,
+		},
+	}
+
+	if err := r.SendMessage(conn, chordMessage); err != nil {
+		errMsg := fmt.Sprintf("Failed to send deregistration response: %v", err)
+		logger.Error(errMsg)
+
+		if id != -1 {
+			// Remove node if sending response fails
+			r.AddNode(registrationAddr, conn)
+		}
+	}
+}
+
 func (r *Registry) HandleNodeRegistry() {
 	for _, node := range r.Nodes {
 		peers := []*pb.Deregistration{}
