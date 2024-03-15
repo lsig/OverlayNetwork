@@ -128,7 +128,6 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 		}
 	}
 
-	logger.Debugf("RoutingTable: %v", network.RoutingTable)
 	logger.Debugf("Nodes: %v", network.Nodes)
 
 	return &network, nil
@@ -241,6 +240,22 @@ func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, regi
 	}
 }
 
+func GetInitiateTasks(registry *types.Registry) (uint32, error) {
+	chord, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		return 0, err
+	}
+
+	nr, ok := chord.GetMessage().(*pb.MiniChord_InitiateTask)
+	if !ok {
+		return 0, fmt.Errorf("error when parsing registrationResponse packet")
+	}
+
+	logger.Infof("Initiate packets: %d", nr.InitiateTask.Packets)
+
+	return nr.InitiateTask.Packets, nil
+}
+
 func main() {
 	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 	if err != nil {
@@ -257,8 +272,7 @@ func main() {
 	defer node.Listener.Close()
 
 	// Connect to registry
-	err = ConnectToRegistry(registry)
-	if err != nil {
+	if err = ConnectToRegistry(registry); err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
@@ -294,9 +308,15 @@ func main() {
 	go HandleListener(&wg, node)
 	ConnectToNeighbours(network)
 
-	err = SendNodeRegistryResponse(node, network, registry)
-	if err != nil {
+	// Send NodeRegistry Response
+	if err = SendNodeRegistryResponse(node, network, registry); err != nil {
 		logger.Errorf("error sending NodeRegistryResponse to registry: %s", err.Error())
+		os.Exit(1)
+	}
+
+	_, err = GetInitiateTasks(registry)
+	if err != nil {
+		logger.Errorf("error receiving Initiate Tasks: %s", err.Error())
 		os.Exit(1)
 	}
 
