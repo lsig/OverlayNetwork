@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"os"
 	"sync"
@@ -52,6 +53,10 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 	logger.Infof("Listening on port %d", port)
 
 	node.Listener = listener
+
+	// choose a random buffer size
+	// can't see how this would matter a whole lot as there isn't a "perfect" buffer size here
+	node.SendChannel = make(chan pb.NodeData, 8)
 
 	return &node, nil
 }
@@ -240,6 +245,20 @@ func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, regi
 	}
 }
 
+func getRandomNode(nodes []int32) int32 {
+	index := rand.IntN(len(nodes))
+	return nodes[index]
+}
+
+func CreatePackets(node *types.NodeInfo, network *types.Network, packets uint32) {
+	for range packets {
+		logger.Debug("adding packet to channel...")
+		packet := pb.NodeData{Destination: getRandomNode(network.Nodes), Source: node.Id, Payload: 1, Hops: 0, Trace: []int32{}}
+		node.SendChannel <- packet
+	}
+	logger.Debugf("%d packets added to channel", packets)
+}
+
 func GetInitiateTasks(registry *types.Registry) (uint32, error) {
 	chord, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
@@ -314,11 +333,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = GetInitiateTasks(registry)
+	packets, err := GetInitiateTasks(registry)
 	if err != nil {
 		logger.Errorf("error receiving Initiate Tasks: %s", err.Error())
 		os.Exit(1)
 	}
+
+	// create and add packets to sendChannel
+	go CreatePackets(node, network, packets)
 
 	go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)

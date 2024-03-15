@@ -29,3 +29,5 @@ Below are links with explanations and examples of how to solve certain problems 
 [net.ParseIp can be used to check validity of ip representation in string](https://stackoverflow.com/questions/19882961/go-golang-check-ip-address-in-range)
 
 net.Dial, net.DialTCP, net.Listen and net.ResolveTCPAddr were used with help from [the official go _net_ docs](https://pkg.go.dev/net)
+
+[channels](https://go.dev/tour/concurrency/2)

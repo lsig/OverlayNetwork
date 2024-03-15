@@ -3,6 +3,8 @@ package types
 import (
 	"net"
 	"strconv"
+
+	pb "github.com/lsig/OverlayNetwork/pb"
 )
 
 type Address struct {
@@ -19,10 +21,16 @@ type Registry struct {
 	Connection net.Conn
 }
 
+type Packet struct {
+	Id      int32
+	Message int32
+}
+
 type NodeInfo struct {
-	Id       int32
-	Address  Address
-	Listener net.Listener
+	Id          int32
+	Address     Address
+	Listener    net.Listener
+	SendChannel chan pb.NodeData
 }
 
 type ExternalNode struct {
