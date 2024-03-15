@@ -33,5 +33,5 @@ type ExternalNode struct {
 
 type Network struct {
 	Nodes        []int32
-	RoutingTable []ExternalNode
+	RoutingTable []*ExternalNode
 }

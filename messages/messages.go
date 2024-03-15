@@ -119,7 +119,7 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 			return nil, err
 		}
 		externalNode := types.ExternalNode{Id: peer.Id, Address: *peerAddress}
-		network.RoutingTable = append(network.RoutingTable, externalNode)
+		network.RoutingTable = append(network.RoutingTable, &externalNode)
 	}
 
 	for _, id := range nodeRegistry.Ids {
@@ -165,8 +165,15 @@ func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 }
 
 func ConnectToNeighbours(network *types.Network) {
+	// create a waitgroup, so that the function doesn't exit unless all neighbours have been connected to.
+	wg := sync.WaitGroup{}
+
+	// I remember something about dynamically incrementing the waitGroup counter is bad practice..?
+	// Therefore, we add the length of the routing table instead of incrementing for each iteration in the for loop below.
+	wg.Add(len(network.RoutingTable))
+
 	for _, peer := range network.RoutingTable {
-		go func(p types.ExternalNode) {
+		go func(p *types.ExternalNode, wg *sync.WaitGroup) {
 			// dial peer until connection is made
 			tcpServer, err := net.ResolveTCPAddr("tcp", p.Address.ToString())
 			if err != nil {
@@ -188,8 +195,10 @@ func ConnectToNeighbours(network *types.Network) {
 				}
 				tries--
 			}
-		}(peer)
+			wg.Done()
+		}(peer, &wg)
 	}
+	wg.Wait()
 }
 
 func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
@@ -205,6 +214,30 @@ func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
 		} else {
 			logger.Debugf("received pbMessage from registry: %v", pbMessage)
 		}
+	}
+}
+
+func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, registry *types.Registry) error {
+	success := true
+	for _, peer := range network.RoutingTable {
+		if peer.Connection == nil {
+			logger.Errorf("connection to peer %d seems to be nil", peer.Id)
+			success = false
+		}
+	}
+
+	if success {
+		response := pb.NodeRegistryResponse{Result: uint32(node.Id), Info: fmt.Sprintf("I, node %v, address %s, hereby confirm that I've successfully connected to all my neigbours...", node.Id, node.Address.ToString())}
+		chord := pb.MiniChord{Message: &pb.MiniChord_NodeRegistryResponse{NodeRegistryResponse: &response}}
+
+		return utils.SendMessage(registry.Connection, &chord)
+	} else {
+		// message nodes can't send -1 below, even though the assignment description specifies that it must do that on failure.
+		// as nodes can only have valid ids between 0 - 127, a failure Id can be 128.
+		response := pb.NodeRegistryResponse{Result: 128, Info: fmt.Sprintf("I, node %v, address %s, hereby deny that I've successfully connected to all my neigbours...", node.Id, node.Address.ToString())}
+		chord := pb.MiniChord{Message: &pb.MiniChord_NodeRegistryResponse{NodeRegistryResponse: &response}}
+
+		return utils.SendMessage(registry.Connection, &chord)
 	}
 }
 
@@ -260,6 +293,12 @@ func main() {
 
 	go HandleListener(&wg, node)
 	ConnectToNeighbours(network)
+
+	err = SendNodeRegistryResponse(node, network, registry)
+	if err != nil {
+		logger.Errorf("error sending NodeRegistryResponse to registry: %s", err.Error())
+		os.Exit(1)
+	}
 
 	go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)
