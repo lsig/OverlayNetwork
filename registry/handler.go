@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -142,6 +143,13 @@ func (r *Registry) HandleNodeRegistry() {
 		logger.Info(fmt.Sprintf("Succesfully sent NodeRegistry to node %d", node.Id))
 	}
 	r.SetupComplete = true
+}
+
+func (r *Registry) HandleNodeRegistryResponse(res *pb.MiniChord_NodeRegistryResponse) {
+	if res.NodeRegistryResponse.Result < 0 {
+		logger.Error("Node Failed to connect to Nodes in Routing table. Exiting ...")
+		os.Exit(1)
+	}
 }
 
 func (r *Registry) HandleInitiateTask(task *pb.MiniChord) {
