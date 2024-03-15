@@ -65,7 +65,7 @@ func (r *Registry) GenerateRoutingTables(size int) {
 			node.RoutingTable[neighbourKey] = neighbourNode.Address
 		}
 	}
-
+	r.RTableSize = size
 }
 
 func (r *Registry) AddressExists(address string) bool {
