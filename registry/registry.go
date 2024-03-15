@@ -78,7 +78,7 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_InitiateTask:
 				r.HandleInitiateTask(packet.Content)
 			case *pb.MiniChord_TaskFinished:
-				continue
+				r.HandleTaskFinished(packet.Conn, msg)
 			case *pb.MiniChord_ReportTrafficSummary:
 				continue
 			default:

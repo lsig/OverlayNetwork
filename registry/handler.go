@@ -169,18 +169,40 @@ func (r *Registry) HandleInitiateTask(task *pb.MiniChord) {
 	r.StartComplete = true
 }
 
-func (r *Registry) HandleTaskFinished(msg *pb.MiniChord_TaskFinished) {
+func (r *Registry) HandleTaskFinished(conn net.Conn, msg *pb.MiniChord_TaskFinished) {
 	if msg.TaskFinished.Id > 127 {
 		logger.Error("Node Failed to Finish Sending Messages. Exiting ...")
 		os.Exit(1)
+	}
+	if !verifyAddress(msg.TaskFinished.GetAddress(), conn.RemoteAddr().String()) {
+		logger.Error("Node address does not match the connection address")
+		return
 	}
 
 	r.NoFinished++
 
 	if r.NoFinished == len(r.Keys) {
-
+		r.sendTrafficReq()
 	}
 }
+
+func (r *Registry) sendTrafficReq() {
+	for _, node := range r.Nodes {
+		req := &pb.RequestTrafficSummary{}
+		chordMessage := &pb.MiniChord{
+			Message: &pb.MiniChord_RequestTrafficSummary{
+				RequestTrafficSummary: req,
+			},
+		}
+		if err := r.SendMessage(node.Conn, chordMessage); err != nil {
+			errMsg := fmt.Sprintf("Failed to send Traffic Request: %v", err)
+			logger.Error(errMsg)
+		}
+		logger.Info(fmt.Sprintf("Succesfully sent Traffic Request to Node (%d) ", node.Id))
+	}
+}
+
+// Command Line Handlers
 
 func (r *Registry) HandleSetup(routingTableSize int) {
 	if r.SetupSent {
