@@ -38,7 +38,8 @@ type Registry struct {
 	StartComplete bool
 	NoPackets     int
 	NoSetupNodes  int
-	NoFinished int
+	NoFinished    int
+	Summaries     []Summary
 	Listener      net.Listener
 	Packets       chan *Packet
 	Locker        sync.Mutex
@@ -63,4 +64,13 @@ func NewRegistry(port string) (*Registry, error) {
 		Listener:      listener,
 		Packets:       make(chan *Packet, 128),
 	}, nil
+}
+
+type Summary struct {
+	Id            int32
+	Sent          uint32
+	Received      uint32
+	Relayed       uint32
+	TotalSent     int64
+	TotalReceived int64
 }

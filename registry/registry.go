@@ -80,7 +80,7 @@ func (r *Registry) MessageProcessing() {
 			case *pb.MiniChord_TaskFinished:
 				r.HandleTaskFinished(packet.Conn, msg)
 			case *pb.MiniChord_ReportTrafficSummary:
-				continue
+			r.HandleTrafficSummary(msg)
 			default:
 				errMsg := fmt.Sprintf("Unknown message type received: %s", msg)
 				logger.Error(errMsg)

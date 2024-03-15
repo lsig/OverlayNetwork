@@ -202,6 +202,38 @@ func (r *Registry) sendTrafficReq() {
 	}
 }
 
+func (r *Registry) HandleTrafficSummary(msg *pb.MiniChord_ReportTrafficSummary) {
+	summary := Summary{
+		Id:            msg.ReportTrafficSummary.GetId(),
+		Sent:          msg.ReportTrafficSummary.GetSent(),
+		Received:      msg.ReportTrafficSummary.GetReceived(),
+		Relayed:       msg.ReportTrafficSummary.GetRelayed(),
+		TotalSent:     msg.ReportTrafficSummary.GetTotalSent(),
+		TotalReceived: msg.ReportTrafficSummary.GetTotalReceived(),
+	}
+
+	r.Summaries = append(r.Summaries, summary)
+
+	if len(r.Keys) == len(r.Summaries) {
+		r.printSummaries()
+		r.Summaries = []Summary{}
+		r.StartComplete = false
+	}
+}
+
+func (r *Registry) printSummaries() {
+	for _, s := range r.Summaries {
+		fmt.Printf("Node %d,%d,%d,%d,%d,%d\n",
+			s.Id,
+			s.Sent,
+			s.Received,
+			s.Relayed,
+			s.TotalSent,
+			s.TotalReceived,
+		)
+	}
+}
+
 // Command Line Handlers
 
 func (r *Registry) HandleSetup(routingTableSize int) {
