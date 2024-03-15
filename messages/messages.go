@@ -168,18 +168,25 @@ func ConnectToNeighbours(network *types.Network) {
 	for _, peer := range network.RoutingTable {
 		go func(p types.ExternalNode) {
 			// dial peer until connection is made
-			for p.Connection == nil {
-				tcpServer, err := net.ResolveTCPAddr("tcp", p.Address.ToString())
-				if err != nil {
-					logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
+			tcpServer, err := net.ResolveTCPAddr("tcp", p.Address.ToString())
+			if err != nil {
+				logger.Errorf("error creating tcp connection to messaging node: %s\naborting...", err.Error())
+				return
+			}
+			tries := 10
+			for p.Connection == nil && tries >= 0 {
+				if tries <= 0 {
+					logger.Errorf("Could not connect to neighbour %s", p.Address.ToString())
+					break
 				}
 				conn, err := net.DialTCP("tcp", nil, tcpServer)
 				if err != nil {
-					logger.Errorf("error dialing messaging node: %s", err.Error())
+					// logger.Errorf("error dialing messaging node: %s", err.Error())
 				} else {
 					p.Connection = conn
 					logger.Infof("Connected to node %d at %s", p.Id, conn.RemoteAddr().String())
 				}
+				tries--
 			}
 		}(peer)
 	}
