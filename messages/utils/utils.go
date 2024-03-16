@@ -90,8 +90,7 @@ func ReceiveMessage(conn net.Conn) (*pb.MiniChord, error) {
 		return nil, err
 	}
 
-	msg := fmt.Sprintf("Received %v message from %s", GetMiniChordType(message), conn.RemoteAddr().String())
-	logger.Info(msg)
+	// logger.Infof("Received %v message from %s", GetMiniChordType(message), conn.RemoteAddr().String())
 
 	return message, nil
 }
@@ -146,4 +145,32 @@ func GetMiniChordType(msg *pb.MiniChord) string {
 		logger.Warning("unknown minichord message encountered...")
 		return "Unknown"
 	}
+}
+
+func GetRandomNode(nodes []int32) int32 {
+	index := rand.Intn(len(nodes))
+	return nodes[index]
+}
+
+func FindBestNeighbour(routingTable []*types.ExternalNode, packet *pb.NodeData) *types.ExternalNode {
+	// Welcome to the routing algorithm...
+	bestIndex := -1
+
+	for i := len(routingTable) - 1; i >= 0; i-- {
+		// find the neighbour with the closest id to the destination packet,
+		// while making sure that the neighbour's id is lower than the destination's
+		if routingTable[i].Id <= packet.Destination {
+			// best match found
+			bestIndex = i
+			break
+		}
+	}
+
+	if bestIndex == -1 {
+		// if no match was found, that means that the destination Id is strictly lower than all node Ids in the routing table.
+		// This means that we have to think in modulus and send to the node with the highest Id (aka the last node in the table)
+		bestIndex = len(routingTable) - 1
+	}
+
+	return routingTable[bestIndex]
 }

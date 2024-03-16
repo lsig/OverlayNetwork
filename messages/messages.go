@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net"
 	"os"
 	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
+	"github.com/lsig/OverlayNetwork/messages/helpers"
 	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -134,22 +134,37 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 	return &network, nil
 }
 
-func HandleNodeConnection(conn net.Conn, network *types.Network) {
+// Handles each receiving connection from other message nodes
+// runs in a separate goroutine
+func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Network) {
 	for {
 		chord, err := utils.ReceiveMessage(conn)
 		if err != nil {
 			logger.Errorf("error receiving message from node: %s", err.Error())
-			os.Exit(1)
+			break
 		}
 
 		nr, ok := chord.GetMessage().(*pb.MiniChord_NodeData)
 		if !ok {
-			logger.Error("error when parsing registrationResponse packet")
-			os.Exit(1)
+			logger.Error("error when parsing registrationResponse packet to NodeData")
+			break
 		}
 
 		nodeData := nr.NodeData
-		logger.Debugf("received NodeData message: %v", nodeData)
+
+		if nodeData.Destination == node.Id {
+			// this packet is for me!
+			// node.Stats.Received++
+			// logger.Debugf("received NodeData message: %v", nodeData)
+		} else {
+			// logger.Debugf("relaying NodeData message: %v", nodeData)
+			// add to channel in a separate goroutine,
+			// as we don't want the existing goroutine to be blocked from receiving new messages
+			// if the channel is full
+			go func(nw *types.Network, nd *pb.NodeData) {
+				nw.SendChannel <- nodeData
+			}(network, nodeData)
+		}
 	}
 }
 
@@ -162,14 +177,16 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Net
 			logger.Errorf("error handling incoming connection: %s", err.Error())
 		}
 		// logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
+		go HandleNodeConnection(conn, node, network)
+	}
 }
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 	defer wg.Done()
 
 	for packet := range network.SendChannel {
-		logger.Debugf("received packet %v from channel", packet.Destination)
-		bestNeighbour := FindBestNeighbour(network.RoutingTable, packet)
+		// logger.Debugf("received packet %v from channel", packet.Destination)
+		bestNeighbour := utils.FindBestNeighbour(network.RoutingTable, packet)
 
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
 
@@ -259,20 +276,6 @@ func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, regi
 	}
 }
 
-func getRandomNode(nodes []int32) int32 {
-	index := rand.IntN(len(nodes))
-	return nodes[index]
-}
-
-func CreatePackets(node *types.NodeInfo, network *types.Network, packets uint32) {
-	for range packets {
-		logger.Debug("adding packet to channel...")
-		packet := pb.NodeData{Destination: getRandomNode(network.Nodes), Source: node.Id, Payload: 1, Hops: 0, Trace: []int32{}}
-		network.SendChannel <- &packet
-	}
-	logger.Debugf("%d packets added to channel", packets)
-}
-
 func GetInitiateTasks(registry *types.Registry) (uint32, error) {
 	chord, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
@@ -357,7 +360,7 @@ func main() {
 	}
 
 	// create and add packets to sendChannel
-	go CreatePackets(node, network, packets)
+	go helpers.CreatePackets(node, network, packets)
 
 	// go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)
