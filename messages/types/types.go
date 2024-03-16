@@ -25,6 +25,7 @@ type NodeInfo struct {
 	Id       int32
 	Address  Address
 	Listener net.Listener
+	Stats    pb.TrafficSummary
 }
 
 type ExternalNode struct {
