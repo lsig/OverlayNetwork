@@ -50,7 +50,7 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error listening: %s", err.Error())
 	}
-	logger.Infof("Listening on port %d", port)
+	// logger.Infof("Listening on port %d", port)
 
 	node.Listener = listener
 	return &node, nil
@@ -66,7 +66,7 @@ func ConnectToRegistry(registry *types.Registry) error {
 	if err != nil {
 		return fmt.Errorf("error creating tcp connection to registry: %s", err.Error())
 	}
-	logger.Infof("registry connection on port: %v", connection.LocalAddr().String())
+	// logger.Info("connected to registry")
 
 	registry.Connection = connection
 	return nil
@@ -101,7 +101,7 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 		}
 		return nil, fmt.Errorf("error receiving NodeRegistry packet from registry: %s", err.Error())
 	}
-	logger.Infof("Received NodeRegistry packet from registry: %v", nodeRegistry)
+	// logger.Infof("Received NodeRegistry packet from registry: %v", nodeRegistry)
 
 	nr, ok := nodeRegistry.GetMessage().(*pb.MiniChord_NodeRegistry)
 	if !ok {
@@ -161,33 +161,7 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Net
 		if err != nil {
 			logger.Errorf("error handling incoming connection: %s", err.Error())
 		}
-		logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
-		go HandleNodeConnection(conn, network)
-	}
-}
-
-func FindBestNeighbour(routingTable []*types.ExternalNode, packet *pb.NodeData) *types.ExternalNode {
-	// Welcome to the routing algorithm...
-
-	bestIndex := -1
-
-	for i := len(routingTable) - 1; i >= 0; i-- {
-		// find the neighbour with the closest id to the destination packet,
-		// while making sure that the neighbour's id is lower than the destination's
-		if routingTable[i].Id <= packet.Destination {
-			// best match found
-			bestIndex = i
-			break
-		}
-	}
-
-	if bestIndex == -1 {
-		// if no match was found, that means that the destination Id is strictly lower than all node Ids in the routing table.
-		// This means that we have to think in modulus and send to the node with the highest Id (aka the last node in the table)
-		bestIndex = len(routingTable) - 1
-	}
-
-	return routingTable[bestIndex]
+		// logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
 }
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
@@ -199,27 +173,13 @@ func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
 
-		logger.Debugf("forward packet to node %d", bestNeighbour.Id)
+		logger.Debugf("packet: s: %d | d: %d | sent to: %d", packet.Source, packet.Destination, bestNeighbour.Id)
 		err := utils.SendMessage(bestNeighbour.Connection, &chord)
 		if err != nil {
 			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())
 			os.Exit(1)
 		}
 	}
-
-	// for _, peer := range network.RoutingTable {
-	// 	tcpServer, err := net.ResolveTCPAddr("tcp", peer.Address.ToString())
-	// 	if err != nil {
-	// 		logger.Errorf("error creating tcp connection to messaging node: %s", err.Error())
-	// 	}
-	// 	conn, err := net.DialTCP("tcp", nil, tcpServer)
-	// 	if err != nil {
-	// 		logger.Errorf("error dialing messaging node: %s", err.Error())
-	// 	} else {
-	// 		peer.Connection = conn
-	// 		logger.Infof("Connected to node %d at %s", peer.Id, conn.RemoteAddr().String())
-	// 	}
-	// }
 }
 
 func ConnectToNeighbours(network *types.Network) {
@@ -249,7 +209,7 @@ func ConnectToNeighbours(network *types.Network) {
 					// logger.Errorf("error dialing messaging node: %s", err.Error())
 				} else {
 					p.Connection = conn
-					logger.Infof("Connected to node %d at %s", p.Id, conn.RemoteAddr().String())
+					// logger.Infof("Connected to node %d", p.Id)
 				}
 				tries--
 			}
@@ -373,7 +333,10 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
-	logger.Debugf("network: %v\n", network)
+	logger.Debug("RoutingTable: ")
+	for _, peer := range network.RoutingTable {
+		logger.Debugf("node: %d - address %s", peer.Id, peer.Address.ToString())
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(4)

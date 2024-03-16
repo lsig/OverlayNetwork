@@ -104,8 +104,7 @@ func SendMessage(conn net.Conn, message *pb.MiniChord) error {
 		return fmt.Errorf("failed to marshal message %w", err)
 	}
 
-	msg := fmt.Sprintf("Sending %s message to %s", GetMiniChordType(message), conn.RemoteAddr().String())
-	logger.Info(msg)
+	// logger.Infof("Sending %s message to %s", GetMiniChordType(message), conn.RemoteAddr().String())
 
 	bs := make([]byte, I64SIZE)
 	binary.BigEndian.PutUint64(bs, uint64(len(data)))
