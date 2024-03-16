@@ -27,10 +27,9 @@ type Packet struct {
 }
 
 type NodeInfo struct {
-	Id          int32
-	Address     Address
-	Listener    net.Listener
-	SendChannel chan pb.NodeData
+	Id       int32
+	Address  Address
+	Listener net.Listener
 }
 
 type ExternalNode struct {
@@ -42,4 +41,5 @@ type ExternalNode struct {
 type Network struct {
 	Nodes        []int32
 	RoutingTable []*ExternalNode
+	SendChannel  chan *pb.NodeData
 }

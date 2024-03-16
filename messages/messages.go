@@ -53,11 +53,6 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 	logger.Infof("Listening on port %d", port)
 
 	node.Listener = listener
-
-	// choose a random buffer size
-	// can't see how this would matter a whole lot as there isn't a "perfect" buffer size here
-	node.SendChannel = make(chan pb.NodeData, 8)
-
 	return &node, nil
 }
 
@@ -133,8 +128,9 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 		}
 	}
 
-	logger.Debugf("Nodes: %v", network.Nodes)
-
+	// choose a random buffer size
+	// can't see how this would matter a whole lot as there isn't a "perfect" buffer size here
+	network.SendChannel = make(chan *pb.NodeData, 8)
 	return &network, nil
 }
 
@@ -152,6 +148,10 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 	defer wg.Done()
+
+	for packet := range network.SendChannel {
+		logger.Debugf("received packet %v from channel", packet.Payload)
+	}
 
 	// for _, peer := range network.RoutingTable {
 	// 	tcpServer, err := net.ResolveTCPAddr("tcp", peer.Address.ToString())
@@ -254,7 +254,7 @@ func CreatePackets(node *types.NodeInfo, network *types.Network, packets uint32)
 	for range packets {
 		logger.Debug("adding packet to channel...")
 		packet := pb.NodeData{Destination: getRandomNode(network.Nodes), Source: node.Id, Payload: 1, Hops: 0, Trace: []int32{}}
-		node.SendChannel <- packet
+		network.SendChannel <- &packet
 	}
 	logger.Debugf("%d packets added to channel", packets)
 }
@@ -346,4 +346,6 @@ func main() {
 	go HandleConnector(&wg, network)
 	go handleStdInput(&wg, node, registry)
 	wg.Wait()
+
+	logger.Info("I'm done now... bye")
 }
