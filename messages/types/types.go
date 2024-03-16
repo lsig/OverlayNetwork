@@ -21,11 +21,6 @@ type Registry struct {
 	Connection net.Conn
 }
 
-type Packet struct {
-	Id      int32
-	Message int32
-}
-
 type NodeInfo struct {
 	Id       int32
 	Address  Address

@@ -134,7 +134,26 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 	return &network, nil
 }
 
-func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
+func HandleNodeConnection(conn net.Conn, network *types.Network) {
+	for {
+		chord, err := utils.ReceiveMessage(conn)
+		if err != nil {
+			logger.Errorf("error receiving message from node: %s", err.Error())
+			os.Exit(1)
+		}
+
+		nr, ok := chord.GetMessage().(*pb.MiniChord_NodeData)
+		if !ok {
+			logger.Error("error when parsing registrationResponse packet")
+			os.Exit(1)
+		}
+
+		nodeData := nr.NodeData
+		logger.Debugf("received NodeData message: %v", nodeData)
+	}
+}
+
+func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Network) {
 	defer wg.Done()
 
 	for {
@@ -143,14 +162,48 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo) {
 			logger.Errorf("error handling incoming connection: %s", err.Error())
 		}
 		logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
+		go HandleNodeConnection(conn, network)
 	}
+}
+
+func FindBestNeighbour(routingTable []*types.ExternalNode, packet *pb.NodeData) *types.ExternalNode {
+	// Welcome to the routing algorithm...
+
+	bestIndex := -1
+
+	for i := len(routingTable) - 1; i >= 0; i-- {
+		// find the neighbour with the closest id to the destination packet,
+		// while making sure that the neighbour's id is lower than the destination's
+		if routingTable[i].Id <= packet.Destination {
+			// best match found
+			bestIndex = i
+			break
+		}
+	}
+
+	if bestIndex == -1 {
+		// if no match was found, that means that the destination Id is strictly lower than all node Ids in the routing table.
+		// This means that we have to think in modulus and send to the node with the highest Id (aka the last node in the table)
+		bestIndex = len(routingTable) - 1
+	}
+
+	return routingTable[bestIndex]
 }
 
 func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 	defer wg.Done()
 
 	for packet := range network.SendChannel {
-		logger.Debugf("received packet %v from channel", packet.Payload)
+		logger.Debugf("received packet %v from channel", packet.Destination)
+		bestNeighbour := FindBestNeighbour(network.RoutingTable, packet)
+
+		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
+
+		err := utils.SendMessage(bestNeighbour.Connection, &chord)
+		if err != nil {
+			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())
+			os.Exit(1)
+		}
 	}
 
 	// for _, peer := range network.RoutingTable {
@@ -324,7 +377,7 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(4)
 
-	go HandleListener(&wg, node)
+	go HandleListener(&wg, node, network)
 	ConnectToNeighbours(network)
 
 	// Send NodeRegistry Response
@@ -342,7 +395,7 @@ func main() {
 	// create and add packets to sendChannel
 	go CreatePackets(node, network, packets)
 
-	go HandleRegistry(&wg, registry)
+	// go HandleRegistry(&wg, registry)
 	go HandleConnector(&wg, network)
 	go handleStdInput(&wg, node, registry)
 	wg.Wait()
