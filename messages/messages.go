@@ -199,6 +199,7 @@ func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
 
+		logger.Debugf("forward packet to node %d", bestNeighbour.Id)
 		err := utils.SendMessage(bestNeighbour.Connection, &chord)
 		if err != nil {
 			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())

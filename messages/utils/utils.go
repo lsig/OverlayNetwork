@@ -137,6 +137,8 @@ func GetMiniChordType(msg *pb.MiniChord) string {
 		return "NodeRegistryResponse"
 	case *pb.MiniChord_InitiateTask:
 		return "InitiateTasks"
+	case *pb.MiniChord_NodeData:
+		return "NodeData"
 	case *pb.MiniChord_TaskFinished:
 		return "TaskFinished"
 	case *pb.MiniChord_ReportTrafficSummary:
