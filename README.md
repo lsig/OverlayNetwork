@@ -31,3 +31,5 @@ Below are links with explanations and examples of how to solve certain problems 
 net.Dial, net.DialTCP, net.Listen and net.ResolveTCPAddr were used with help from [the official go _net_ docs](https://pkg.go.dev/net)
 
 [channels](https://go.dev/tour/concurrency/2)
+
+[sort list of complex objects](https://yourbasic.org/golang/how-to-sort-in-go/)
