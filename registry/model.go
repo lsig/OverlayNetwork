@@ -56,7 +56,7 @@ func NewRegistry(port string) (*Registry, error) {
 	idSpace := []int32{}
 
 	for i := range 128 {
-		idSpace[i] = int32(i)
+		idSpace = append(idSpace, int32(i))
 	}
 
 	return &Registry{
