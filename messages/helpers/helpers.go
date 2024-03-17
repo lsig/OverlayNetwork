@@ -60,7 +60,7 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 	})
 
 	// choose a random buffer size
-	// can't see how this would matter a whole lot as there isn't a "perfect" buffer size here
+	// can't see how finding the exact size matters a whole lot as there isn't a "perfect" buffer size here
 	network.SendChannel = make(chan *pb.NodeData, 8)
 	return &network, nil
 }

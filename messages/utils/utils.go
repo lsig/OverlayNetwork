@@ -184,5 +184,21 @@ func NodeDataPacketIsMalformed(nodeData *pb.NodeData, node *types.NodeInfo) (boo
 }
 
 func GeneratePayload() int32 {
-	return 10
+	var min int64 = -2147483648
+	var max int64 = 2147483647
+
+	// min is a negative number,
+	// so we must subtract it to get a range from 0 - 4.294.967.295
+	// Also, the generator function finds a number with an half-open interval,
+	// so we must add one to the input to ensure that 2147483647 can be generated
+	payload := rand.Int63n(max - min + 1)
+
+	// subtract by the minimum amount to get a range from -2147483648 - 2147483647
+	payload += min
+
+	if payload < min || payload > max {
+		logger.Errorf("Generated payload is not inbetween boundary")
+	}
+
+	return int32(payload)
 }
