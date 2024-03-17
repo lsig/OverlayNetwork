@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
@@ -71,6 +72,8 @@ func GetNodeRegistry(registry *types.Registry) (*pb.NodeRegistry, error) {
 	return nr.NodeRegistry, nil
 }
 
+// Checks whether connecting to nodes in routing table succeeded
+// then sends outcome in NodeRegistryResponse packet to registry
 func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, registry *types.Registry) error {
 	success := true
 	for _, peer := range network.RoutingTable {
@@ -128,4 +131,53 @@ func GetInitiateTasks(registry *types.Registry) (uint32, error) {
 	logger.Infof("Initiate packets: %d", nr.InitiateTask.Packets)
 
 	return nr.InitiateTask.Packets, nil
+}
+
+// Waits for all messages to have been sent
+// and then sends TaskFinished message to registry
+func SendTaskFinishedAndTrafficSummary(packets uint32, node *types.NodeInfo, registry *types.Registry) {
+	for packets > node.Stats.Sent {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	logger.Info("All packets sent, sending TaskFinished")
+
+	taskFinished := &pb.TaskFinished{Id: node.Id, Address: node.Address.ToString()}
+	chord := &pb.MiniChord{Message: &pb.MiniChord_TaskFinished{TaskFinished: taskFinished}}
+
+	err := utils.SendMessage(registry.Connection, chord)
+	if err != nil {
+		logger.Errorf("error sending TaskFinished to registry: %s", err.Error())
+		os.Exit(1)
+	}
+
+	// Receive RequestTrafficSummary
+	response, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		logger.Errorf("error when receiving RequestTrafficSummary: %s", err.Error())
+		os.Exit(1)
+	}
+
+	switch response.Message.(type) {
+	case *pb.MiniChord_RequestTrafficSummary:
+		// Send TrafficSummary
+		err := SendTrafficSummary(registry, node)
+		if err != nil {
+			logger.Errorf("error sending TrafficSummary: %s", err.Error())
+			os.Exit(1)
+		}
+	default:
+		logger.Errorf("response not of type RequestTrafficSummary: %v", response.Message)
+	}
+}
+
+func SendTrafficSummary(registry *types.Registry, node *types.NodeInfo) error {
+
+	trafficSummary := &pb.TrafficSummary{Id: node.Id, Sent: node.Stats.Sent, Relayed: node.Stats.Relayed, Received: node.Stats.Received, TotalSent: node.Stats.TotalSent, TotalReceived: node.Stats.TotalReceived}
+
+	chord := &pb.MiniChord{Message: &pb.MiniChord_ReportTrafficSummary{ReportTrafficSummary: trafficSummary}}
+
+	logger.Infof("Sending TrafficSummary: %v", trafficSummary)
+
+	return utils.SendMessage(registry.Connection, chord)
 }

@@ -82,6 +82,10 @@ func main() {
 	// go HandleRegistry(&wg, registry)
 	go helpers.HandleConnector(&wg, node, network)
 	go helpers.HandleStdInput(&wg, node, registry)
+
+	// Send task finished must be in a separate goroutine
+	// as the node must still handle connections after its sent
+	go helpers.SendTaskFinishedAndTrafficSummary(packets, node, registry)
 	wg.Wait()
 
 	logger.Info("I'm done now... bye")

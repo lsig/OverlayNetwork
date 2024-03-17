@@ -98,7 +98,7 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 				listening = false
 			}
 		case "print":
-			fmt.Println("printing...")
+			fmt.Printf("%v\n", &node.Stats)
 		default:
 			fmt.Println("unknown...")
 		}

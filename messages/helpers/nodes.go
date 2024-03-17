@@ -122,6 +122,7 @@ func HandleConnector(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Ne
 		if packet.Source == node.Id {
 			// This packet originated at my node
 			node.Stats.Sent++
+			node.Stats.TotalSent += int64(packet.Payload)
 		}
 
 		err := utils.SendMessage(bestNeighbour.Connection, &chord)
