@@ -19,7 +19,7 @@ func (r *Registry) AddNode(address string, connection net.Conn) int32 {
 		return -1
 	}
 
-	id := generateId(r.Nodes)
+	id := r.generateId()
 	node := NewNode(int32(id), address, connection)
 	r.Nodes[node.Id] = node
 	r.Keys = append(r.Keys, node.Id)
@@ -77,13 +77,13 @@ func (r *Registry) AddressExists(address string) bool {
 	return false
 }
 
-func generateId(keys map[int32]*Node) int32 {
-	for {
-		id := int32(rand.IntN(128))
-		if _, ok := keys[id]; !ok {
-			return id
-		}
-	}
+func (r *Registry) generateId() int32 {
+	index := rand.IntN(len(r.IdSpace))
+
+	id := r.IdSpace[index]
+
+	r.IdSpace = append(r.IdSpace[:index], r.IdSpace[index+1:]...)
+	return id
 }
 
 func deleteKey(keys []int32, id int32) []int32 {

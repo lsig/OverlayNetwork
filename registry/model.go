@@ -31,6 +31,7 @@ type Packet struct {
 
 type Registry struct {
 	Nodes         map[int32]*Node
+	IdSpace       []int32
 	Keys          []int32
 	RTableSize    int
 	SetupSent     bool
@@ -52,8 +53,15 @@ func NewRegistry(port string) (*Registry, error) {
 		return nil, err
 	}
 
+	idSpace := []int32{}
+
+	for i := range 128 {
+		idSpace[i] = int32(i)
+	}
+
 	return &Registry{
 		Nodes:         map[int32]*Node{},
+		IdSpace:       idSpace,
 		Keys:          []int32{},
 		RTableSize:    0,
 		SetupSent:     false,
