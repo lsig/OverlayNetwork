@@ -174,3 +174,14 @@ func FindBestNeighbour(routingTable []*types.ExternalNode, packet *pb.NodeData) 
 
 	return routingTable[bestIndex]
 }
+
+func NodeDataPacketIsMalformed(nodeData *pb.NodeData, node *types.NodeInfo) (bool, string) {
+	if nodeData.Source == node.Id {
+		return true, "packet source is equal to this node's id"
+	}
+	return false, ""
+}
+
+func GeneratePayload() int32 {
+	return 10
+}

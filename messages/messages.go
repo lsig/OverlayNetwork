@@ -80,7 +80,7 @@ func main() {
 	go helpers.CreatePackets(node, network, packets)
 
 	// go HandleRegistry(&wg, registry)
-	go helpers.HandleConnector(&wg, network)
+	go helpers.HandleConnector(&wg, node, network)
 	go helpers.HandleStdInput(&wg, node, registry)
 	wg.Wait()
 

@@ -66,11 +66,20 @@ func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Ne
 
 		nodeData := nr.NodeData
 
+		if malformed, _ := utils.NodeDataPacketIsMalformed(nodeData, node); malformed {
+			logger.Warningf("received malformed packet, dropping: %v", nodeData)
+			break
+		}
+
 		if nodeData.Destination == node.Id {
 			// this packet is for me!
-			// node.Stats.Received++
+			node.Stats.Received++
+			node.Stats.TotalReceived += int64(nodeData.Payload)
 			// logger.Debugf("received NodeData message: %v", nodeData)
 		} else {
+			node.Stats.Relayed++
+			// TODO check if my id appears in the trace.
+			nodeData.Trace = append(nodeData.Trace, node.Id)
 			// logger.Debugf("relaying NodeData message: %v", nodeData)
 			// add to channel in a separate goroutine,
 			// as we don't want the existing goroutine to be blocked from receiving new messages
@@ -99,7 +108,7 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Net
 
 // Receives packets from the packet channel
 // and finds the optimal neighbour to send to
-func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
+func HandleConnector(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Network) {
 	defer wg.Done()
 
 	for packet := range network.SendChannel {
@@ -109,6 +118,12 @@ func HandleConnector(wg *sync.WaitGroup, network *types.Network) {
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
 
 		logger.Debugf("packet: s: %d | d: %d | sent to: %d", packet.Source, packet.Destination, bestNeighbour.Id)
+
+		if packet.Source == node.Id {
+			// This packet originated at my node
+			node.Stats.Sent++
+		}
+
 		err := utils.SendMessage(bestNeighbour.Connection, &chord)
 		if err != nil {
 			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())
