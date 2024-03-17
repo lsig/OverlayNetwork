@@ -66,6 +66,14 @@ func Warning(message string) {
 	}
 }
 
+func Warningf(format string, a ...any) {
+	message := fmt.Sprintf(format, a...)
+
+	if logger.Level <= WarningLevel {
+		logger.warningLogger.Println(message)
+	}
+}
+
 func Error(message string) {
 	if logger.Level <= ErrorLevel {
 		logger.errorLogger.Println(message)
