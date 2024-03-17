@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 
 	"github.com/lsig/OverlayNetwork/messages/types"
@@ -51,6 +52,12 @@ func SetupNetwork(nodeRegistry *pb.NodeRegistry, node *types.NodeInfo) (*types.N
 			network.Nodes = append(network.Nodes, id)
 		}
 	}
+
+	// IMPORTANT: sort the routing table by ExternalNode.Id
+	// No two nodes have the same Id, so no need to use sort.SliceStable
+	sort.Slice(network.RoutingTable, func(i, j int) bool {
+		return network.RoutingTable[i].Id < network.RoutingTable[j].Id
+	})
 
 	// choose a random buffer size
 	// can't see how this would matter a whole lot as there isn't a "perfect" buffer size here

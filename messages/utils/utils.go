@@ -156,6 +156,7 @@ func FindBestNeighbour(routingTable []*types.ExternalNode, packet *pb.NodeData) 
 	// Welcome to the routing algorithm...
 	bestIndex := -1
 
+	// We assume that the routing table list is ordered by ExternalNode.Id
 	for i := len(routingTable) - 1; i >= 0; i-- {
 		// find the neighbour with the closest id to the destination packet,
 		// while making sure that the neighbour's id is lower than the destination's
