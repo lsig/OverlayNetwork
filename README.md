@@ -12,6 +12,7 @@ go run registry/registry.go
 go run messages/messages.go <host>:<port>
 ```
 
+<<<<<<< HEAD
 # Implementation details
 
 A concern we raised with Marcel was that we saw that once all message nodes had sent their originating packets and sent a TaskFinished message to the registry, some packets were still in circulation in the network, being relayed between nodes. While this wasn't a problem for lower values of _n_, for larger ones, such as 100.000, the possibility of any packets being in circulation while all nodes had successfully delivered their packets was much higher.
@@ -23,6 +24,15 @@ During the in-class discussion on this problem on March 18th, many students said
 <br>
 
 Finally, we decided that once all the message nodes had sent their _TrafficSummary_ messages, that they would gracefully shut down, closing all connections and stop listening as well, before terminating.
+=======
+To run the bash script which spins up 10 instances of messaging nodes and 1 registry instance you first need to:
+
+chmod +x run.sh
+
+Then simply run the script like so:
+
+./run.sh
+>>>>>>> 72adb91 (Add section about running bash script to README)
 
 # Work methodology
 
