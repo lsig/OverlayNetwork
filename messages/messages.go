@@ -12,7 +12,7 @@ import (
 func main() {
 	// create waitgroup to keep program executing
 	wg := sync.WaitGroup{}
-	wg.Add(4)
+	wg.Add(3)
 
 	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 	if err != nil {
@@ -65,6 +65,7 @@ func main() {
 		logger.Debugf("node: %d - address %s", peer.Id, peer.Address.ToString())
 	}
 
+	// accept incoming connections
 	go helpers.HandleListener(&wg, node, network)
 	helpers.ConnectToNeighbours(network)
 
