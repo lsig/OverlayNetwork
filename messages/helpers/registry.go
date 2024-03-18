@@ -119,7 +119,7 @@ func GetInitiateTasks(node *types.NodeInfo, registry *types.Registry) (uint32, e
 
 // Waits for all messages to have been sent
 // and then sends TaskFinished message to registry
-func SendTaskFinishedAndTrafficSummary(packets uint32, node *types.NodeInfo, registry *types.Registry) {
+func SendTaskFinishedAndTrafficSummary(packets uint32, node *types.NodeInfo, network *types.Network, registry *types.Registry) {
 	for packets > node.Stats.Sent {
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -141,6 +141,9 @@ func SendTaskFinishedAndTrafficSummary(packets uint32, node *types.NodeInfo, reg
 		logger.Errorf("error when receiving RequestTrafficSummary: %s", err.Error())
 		os.Exit(1)
 	}
+
+	// Close packet channel, node won't relay any more messages
+	close(network.SendChannel)
 
 	switch response.Message.(type) {
 	case *pb.MiniChord_RequestTrafficSummary:

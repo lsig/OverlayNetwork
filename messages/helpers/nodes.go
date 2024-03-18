@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -54,7 +55,12 @@ func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Ne
 	for {
 		chord, err := utils.ReceiveMessage(conn)
 		if err != nil {
-			logger.Errorf("error receiving message from node: %s", err.Error())
+			if err != io.EOF {
+				logger.Errorf("error receiving message from node: %s", err.Error())
+			} else {
+				logger.Infof("Sender node has disconnected")
+				conn.Close()
+			}
 			break
 		}
 
@@ -131,5 +137,9 @@ func HandleConnector(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Ne
 			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())
 			os.Exit(1)
 		}
+	}
+	logger.Infof("Finished sending packets.. closing connections")
+	for _, peer := range network.RoutingTable {
+		peer.Connection.Close()
 	}
 }
