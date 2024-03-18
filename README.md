@@ -20,8 +20,6 @@ We proposed a possible solution with Marcel, that we should consider relayed pac
 
 During the in-class discussion on this problem on March 18th, many students said that they simply got around this problem by inserting a sleep call at the registry after having received the last _TaskFinished_ packet, allowing all relaying packets to be delivered to their destinations. While being not as cool, its hard to argue with the effectiveness of this solution. Therefore, you'll find that the registry waits 5 seconds after receiving the last _TaskFinished_ packet and before casting _RequestTrafficSummary_ packets.
 
-<br>
-
 Finally, we decided that once all the message nodes had sent their _TrafficSummary_ messages, that they would gracefully shut down, closing all connections and stop listening as well, before terminating.
 
 # Work methodology
