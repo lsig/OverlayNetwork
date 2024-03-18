@@ -5,6 +5,7 @@ import (
 	"net"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
@@ -81,43 +82,56 @@ func CreatePackets(node *types.NodeInfo, network *types.Network, packets uint32)
 // and performs actions based on the recieved command
 func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Registry) {
 	defer wg.Done()
-	var input string
 	listening := true
+
+	inputChannel := make(chan string)
+
+	go func() {
+		var input string
+		for {
+			fmt.Scanln(&input)
+			inputChannel <- input
+		}
+	}()
+
 	for listening && !node.HasClosed {
-		fmt.Scanln(&input)
-
-		switch input {
-		case "exit":
-			if node.IsSetup {
-				logger.Error("Can't deregister, node is already setup")
-				break
-			}
-			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.ToString()}
-
-			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
-			err := utils.SendMessage(registry.Connection, &chord)
-			if err != nil {
-				fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
-			} else {
-				response, err := GetDeregistrationResponse(registry)
-				if err != nil {
-					logger.Error(err.Error())
-				} else if response.Result == -1 {
-					logger.Error("Node not allowed to deregister")
-				} else {
-					fmt.Printf("Successfully deregistered")
-
-					listening = false
+		select {
+		case input := <-inputChannel:
+			switch input {
+			case "exit":
+				if node.IsSetup {
+					logger.Error("Can't deregister, node is already setup")
+					break
 				}
+				deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.ToString()}
+
+				chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
+				err := utils.SendMessage(registry.Connection, &chord)
+				if err != nil {
+					fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
+				} else {
+					response, err := GetDeregistrationResponse(registry)
+					if err != nil {
+						logger.Error(err.Error())
+					} else if response.Result == -1 {
+						logger.Error("Node not allowed to deregister")
+					} else {
+						fmt.Printf("Successfully deregistered")
+
+						listening = false
+					}
+				}
+			case "print":
+				fmt.Printf("Sent %d\n", node.Stats.Sent)
+				fmt.Printf("Received %d\n", node.Stats.Received)
+				fmt.Printf(" Relayed %d\n", node.Stats.Relayed)
+				fmt.Printf("Total Sent %d\n", node.Stats.TotalSent)
+				fmt.Printf("Total Received %d\n", node.Stats.TotalReceived)
+			default:
+				fmt.Println("unknown command...")
 			}
-		case "print":
-			fmt.Printf("Sent %d\n", node.Stats.Sent)
-			fmt.Printf("Received %d\n", node.Stats.Received)
-			fmt.Printf(" Relayed %d\n", node.Stats.Relayed)
-			fmt.Printf("Total Sent %d\n", node.Stats.TotalSent)
-			fmt.Printf("Total Received %d\n", node.Stats.TotalReceived)
 		default:
-			fmt.Println("unknown...")
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 	logger.Info("stopped listening to commands")
