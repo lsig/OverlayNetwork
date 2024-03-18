@@ -64,23 +64,23 @@ func (r *Registry) HandleRegistration(conn net.Conn, msg *pb.MiniChord_Registrat
 }
 
 func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregistration) {
-	if r.SetupSent {
-		logger.Error("Can't Deregister after setup has executed")
-		return
-	}
-
 	var info string
 	var id int32
 	success := true
 
+	if r.SetupSent {
+		success = false
+		info = "Can't Deregister after setup has executed"
+	}
+
 	registrationAddr := msg.Deregistration.GetAddress()
 
-	if !verifyAddress(registrationAddr, conn.RemoteAddr().String()) {
+	if success && !verifyAddress(registrationAddr, conn.RemoteAddr().String()) {
 		success = false
 		info = "Deregistration request unsuccessful: Address mismatch."
 	}
 
-	if !r.AddressExists(registrationAddr) {
+	if success && !r.AddressExists(registrationAddr) {
 		success = false
 		info = "Deregistration request unsuccessful: Address does not exist."
 	}
@@ -91,7 +91,7 @@ func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregis
 		logger.Info(info)
 	} else {
 		id = -1
-		logger.Error(info)
+		logger.Infof("node %d: %s", msg.Deregistration.Id, info)
 	}
 
 	res := &pb.DeregistrationResponse{
