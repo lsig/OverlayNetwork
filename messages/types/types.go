@@ -22,10 +22,12 @@ type Registry struct {
 }
 
 type NodeInfo struct {
-	Id       int32
-	Address  Address
-	Listener net.Listener
-	Stats    pb.TrafficSummary
+	Id        int32
+	Address   Address
+	Listener  net.Listener
+	Listening bool
+	IsSetup   bool
+	Stats     pb.TrafficSummary
 }
 
 type ExternalNode struct {

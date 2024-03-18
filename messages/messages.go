@@ -10,6 +10,10 @@ import (
 )
 
 func main() {
+	// create waitgroup to keep program executing
+	wg := sync.WaitGroup{}
+	wg.Add(4)
+
 	registry, err := utils.GetRegistryFromProgramArgs(os.Args)
 	if err != nil {
 		logger.Error(err.Error())
@@ -23,6 +27,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer node.Listener.Close()
+
+	// handle standard input commands from user
+	go helpers.HandleStdInput(&wg, node, registry)
 
 	// Connect to registry
 	if err = helpers.ConnectToRegistry(registry); err != nil {
@@ -58,9 +65,6 @@ func main() {
 		logger.Debugf("node: %d - address %s", peer.Id, peer.Address.ToString())
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(4)
-
 	go helpers.HandleListener(&wg, node, network)
 	helpers.ConnectToNeighbours(network)
 
@@ -70,7 +74,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	packets, err := helpers.GetInitiateTasks(registry)
+	packets, err := helpers.GetInitiateTasks(node, registry)
 	if err != nil {
 		logger.Errorf("error receiving Initiate Tasks: %s", err.Error())
 		os.Exit(1)
@@ -79,8 +83,8 @@ func main() {
 	// create and add packets to sendChannel
 	go helpers.CreatePackets(node, network, packets)
 
+	// handle sending packets
 	go helpers.HandleConnector(&wg, node, network)
-	go helpers.HandleStdInput(&wg, node, registry)
 
 	// Send task finished must be in a separate goroutine
 	// as the node must still handle connections after its sent

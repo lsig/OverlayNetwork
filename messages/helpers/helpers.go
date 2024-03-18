@@ -21,7 +21,7 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 	port := utils.GenerateRandomPort()
 	// hardcoding the IP address only makes sense for this testing environment.
 	// With nodes covering multiple addresses, the external IP address should be used.
-	node := types.NodeInfo{Address: types.Address{Host: net.ParseIP("127.0.0.1"), Port: uint16(port)}}
+	node := types.NodeInfo{Address: types.Address{Host: net.ParseIP("127.0.0.1"), Port: uint16(port)}, Listening: false, IsSetup: false}
 
 	// remove "localhost" if used externally.
 	// We explicitly prefix this to avoid firewall prompts on startup
@@ -32,6 +32,7 @@ func CreateListenerNode() (*types.NodeInfo, error) {
 	// logger.Infof("Listening on port %d", port)
 
 	node.Listener = listener
+	node.Listening = true
 	return &node, nil
 }
 
@@ -87,6 +88,10 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 
 		switch input {
 		case "exit":
+			if node.IsSetup {
+				logger.Error("Can't deregister, node is already setup")
+				break
+			}
 			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.ToString()}
 
 			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
@@ -98,17 +103,18 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 				if err != nil {
 					logger.Error(err.Error())
 				} else if response.Result == -1 {
-					logger.Error("Node not allowed to register")
+					logger.Error("Node not allowed to deregister")
 				} else {
 					fmt.Printf("Successfully deregistered")
+
 					listening = false
 				}
 			}
 		case "print":
-			fmt.Printf("    Sent %d\n", node.Stats.Sent)
+			fmt.Printf("Sent %d\n", node.Stats.Sent)
 			fmt.Printf("Received %d\n", node.Stats.Received)
 			fmt.Printf(" Relayed %d\n", node.Stats.Relayed)
-			fmt.Printf("Total     Sent %d\n", node.Stats.TotalSent)
+			fmt.Printf("Total Sent %d\n", node.Stats.TotalSent)
 			fmt.Printf("Total Received %d\n", node.Stats.TotalReceived)
 		default:
 			fmt.Println("unknown...")

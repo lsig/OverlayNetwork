@@ -98,7 +98,7 @@ func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, regi
 }
 
 // Get the InitiateTask MiniChord Message from the registry
-func GetInitiateTasks(registry *types.Registry) (uint32, error) {
+func GetInitiateTasks(node *types.NodeInfo, registry *types.Registry) (uint32, error) {
 	chord, err := utils.ReceiveMessage(registry.Connection)
 	if err != nil {
 		return 0, err
@@ -109,7 +109,10 @@ func GetInitiateTasks(registry *types.Registry) (uint32, error) {
 		return 0, fmt.Errorf("error when parsing registrationResponse packet")
 	}
 
-	logger.Infof("Initiate packets: %d", nr.InitiateTask.Packets)
+	logger.Infof("Initial packets: %d", nr.InitiateTask.Packets)
+
+	// no new connections can be made to this node
+	node.Listening = false
 
 	return nr.InitiateTask.Packets, nil
 }

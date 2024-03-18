@@ -96,7 +96,7 @@ func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Ne
 func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Network) {
 	defer wg.Done()
 
-	for {
+	for node.Listening {
 		conn, err := node.Listener.Accept()
 		if err != nil {
 			logger.Errorf("error handling incoming connection: %s", err.Error())
@@ -104,6 +104,7 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Net
 		// logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
 		go HandleNodeConnection(conn, node, network)
 	}
+	logger.Info("Node is no longer listening")
 }
 
 // Receives packets from the packet channel
