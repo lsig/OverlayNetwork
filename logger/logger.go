@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	InfoLevel = iota
+	DebugLevel = iota
+	InfoLevel
 	WarningLevel
 	ErrorLevel
-	DebugLevel
 )
 
 type Logger struct {
