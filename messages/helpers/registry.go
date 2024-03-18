@@ -112,6 +112,7 @@ func GetInitiateTasks(node *types.NodeInfo, registry *types.Registry) (uint32, e
 	logger.Infof("Initial packets: %d", nr.InitiateTask.Packets)
 
 	// no new connections can be made to this node
+	node.Listener.Close()
 	node.Listening = false
 
 	return nr.InitiateTask.Packets, nil
@@ -144,6 +145,7 @@ func SendTaskFinishedAndTrafficSummary(packets uint32, node *types.NodeInfo, net
 
 	// Close packet channel, node won't relay any more messages
 	close(network.SendChannel)
+	node.HasClosed = true
 
 	switch response.Message.(type) {
 	case *pb.MiniChord_RequestTrafficSummary:

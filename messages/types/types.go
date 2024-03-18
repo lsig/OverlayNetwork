@@ -27,6 +27,7 @@ type NodeInfo struct {
 	Listener  net.Listener
 	Listening bool
 	IsSetup   bool
+	HasClosed bool
 	Stats     pb.TrafficSummary
 }
 

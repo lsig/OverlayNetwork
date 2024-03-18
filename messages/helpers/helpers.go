@@ -83,7 +83,7 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 	defer wg.Done()
 	var input string
 	listening := true
-	for listening {
+	for listening && !node.HasClosed {
 		fmt.Scanln(&input)
 
 		switch input {
@@ -120,6 +120,7 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 			fmt.Println("unknown...")
 		}
 	}
+	logger.Info("stopped listening to commands")
 }
 
 func GetDeregistrationResponse(registry *types.Registry) (*pb.DeregistrationResponse, error) {

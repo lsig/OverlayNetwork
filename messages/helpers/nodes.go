@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/lsig/OverlayNetwork/logger"
@@ -105,6 +106,10 @@ func HandleListener(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Net
 	for node.Listening {
 		conn, err := node.Listener.Accept()
 		if err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				logger.Infof("Listener closed. Exiting accept loop.")
+				break
+			}
 			logger.Errorf("error handling incoming connection: %s", err.Error())
 		}
 		// logger.Infof("successful incoming connection with: %s", conn.RemoteAddr().String())
