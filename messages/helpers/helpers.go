@@ -98,7 +98,11 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 				listening = false
 			}
 		case "print":
-			fmt.Printf("%v\n", &node.Stats)
+			fmt.Printf("    Sent %d\n", node.Stats.Sent)
+			fmt.Printf("Received %d\n", node.Stats.Received)
+			fmt.Printf(" Relayed %d\n", node.Stats.Relayed)
+			fmt.Printf("Total     Sent %d\n", node.Stats.TotalSent)
+			fmt.Printf("Total Received %d\n", node.Stats.TotalReceived)
 		default:
 			fmt.Println("unknown...")
 		}
