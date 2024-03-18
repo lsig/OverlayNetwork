@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
 	"github.com/lsig/OverlayNetwork/messages/utils"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -86,8 +87,6 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 
 		switch input {
 		case "exit":
-			fmt.Println("exiting...")
-
 			deregistration := pb.Deregistration{Id: node.Id, Address: node.Address.ToString()}
 
 			chord := pb.MiniChord{Message: &pb.MiniChord_Deregistration{Deregistration: &deregistration}}
@@ -95,7 +94,15 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 			if err != nil {
 				fmt.Printf("ERROR: Error when deregistering: %v\n", err.Error())
 			} else {
-				listening = false
+				response, err := GetDeregistrationResponse(registry)
+				if err != nil {
+					logger.Error(err.Error())
+				} else if response.Result == -1 {
+					logger.Error("Node not allowed to register")
+				} else {
+					fmt.Printf("Successfully deregistered")
+					listening = false
+				}
 			}
 		case "print":
 			fmt.Printf("    Sent %d\n", node.Stats.Sent)
@@ -107,4 +114,18 @@ func HandleStdInput(wg *sync.WaitGroup, node *types.NodeInfo, registry *types.Re
 			fmt.Println("unknown...")
 		}
 	}
+}
+
+func GetDeregistrationResponse(registry *types.Registry) (*pb.DeregistrationResponse, error) {
+	response, err := utils.ReceiveMessage(registry.Connection)
+	if err != nil {
+		return nil, fmt.Errorf("deregistration failed")
+	}
+
+	deregistrationResponse, ok := response.GetMessage().(*pb.MiniChord_DeregistrationResponse)
+	if !ok {
+		return nil, fmt.Errorf("deregistration failed")
+	}
+
+	return deregistrationResponse.DeregistrationResponse, nil
 }
