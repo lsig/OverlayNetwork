@@ -5,6 +5,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"time"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	pb "github.com/lsig/OverlayNetwork/pb"
@@ -182,6 +183,8 @@ func (r *Registry) HandleTaskFinished(conn net.Conn, msg *pb.MiniChord_TaskFinis
 	r.NoFinished++
 
 	if r.NoFinished == len(r.Keys) {
+		// Sleep for 5 seconds to allow relaying packages to finish
+		time.Sleep(5 * time.Second)
 		r.sendTrafficReq()
 	}
 }
