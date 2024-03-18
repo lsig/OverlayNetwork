@@ -70,6 +70,7 @@ func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregis
 	}
 
 	var info string
+	var id int32
 	success := true
 
 	registrationAddr := msg.Deregistration.GetAddress()
@@ -84,12 +85,12 @@ func (r *Registry) HandleDeregistration(conn net.Conn, msg *pb.MiniChord_Deregis
 		info = "Deregistration request unsuccessful: Address does not exist."
 	}
 
-	id := r.RemoveNode(msg.Deregistration.GetId())
-
 	if success {
 		info = fmt.Sprintf("Deregistration request successful. Node Id: (%d) not longer exists. The number of messaging nodes currently constituting the overlay is (%d).", id, len(r.Keys))
+		id = r.RemoveNode(msg.Deregistration.GetId())
 		logger.Info(info)
 	} else {
+		id = -1
 		logger.Error(info)
 	}
 
