@@ -1,5 +1,17 @@
 # OverlayNetwork
 
+# Running the program
+
+As we structured the codebase as a single go module, we couldn't find a way to have both `registry.go` and `messages.go` be executable from the root directory. We raised this issue up with Marcel on March 18th, and we discussed the possibility of the programs being executed using:
+
+```go
+go run registry/registry.go
+```
+
+```go
+go run messages/messages.go <host>:<port>
+```
+
 # Work methodology
 
 When we started working on the project, we decided that Logi would be responsible for the [registry.go](./registry/registry.go) part of the code, and Kristófer would be responsible for the [messages.go](./messages/messages.go) part. This worked well, as long as we were working on the same functionality at the same time (we met up at RU to work together on the code), as the message nodes and registry are so intertwined.
