@@ -79,7 +79,6 @@ func main() {
 	// create and add packets to sendChannel
 	go helpers.CreatePackets(node, network, packets)
 
-	// go HandleRegistry(&wg, registry)
 	go helpers.HandleConnector(&wg, node, network)
 	go helpers.HandleStdInput(&wg, node, registry)
 

@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/lsig/OverlayNetwork/logger"
@@ -95,24 +94,6 @@ func SendNodeRegistryResponse(node *types.NodeInfo, network *types.Network, regi
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeRegistryResponse{NodeRegistryResponse: &response}}
 
 		return utils.SendMessage(registry.Connection, &chord)
-	}
-}
-
-// Handles receiving unexpected registry requests.
-// Still not sure whether this is needed, as I think all registry-node communication is linear.
-func HandleRegistry(wg *sync.WaitGroup, registry *types.Registry) {
-	for {
-		pbMessage, err := utils.ReceiveMessage(registry.Connection)
-		if err != nil {
-			if err == io.EOF {
-				logger.Error("registry has crashed, shutting down...")
-				registry.Connection.Close()
-				os.Exit(1)
-			}
-			logger.Errorf("error when receiving registry message: %s", err.Error())
-		} else {
-			logger.Debugf("received pbMessage from registry: %v", pbMessage)
-		}
 	}
 }
 
