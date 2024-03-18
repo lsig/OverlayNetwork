@@ -12,6 +12,15 @@ go run registry/registry.go
 go run messages/messages.go <host>:<port>
 ```
 
+To run the bash script which spins up 10 instances of messaging nodes and 1 registry instance you first need to:
+
+chmod +x run.sh
+
+Then simply run the script like so:
+
+./run.sh
+
+
 # Implementation details
 
 A concern we raised with Marcel was that we saw that once all message nodes had sent their originating packets and sent a TaskFinished message to the registry, some packets were still in circulation in the network, being relayed between nodes. While this wasn't a problem for lower values of _n_, for larger ones, such as 100.000, the possibility of any packets being in circulation while all nodes had successfully delivered their packets was much higher.
@@ -21,7 +30,7 @@ We proposed a possible solution with Marcel, that we should consider relayed pac
 During the in-class discussion on this problem on March 18th, many students said that they simply got around this problem by inserting a sleep call at the registry after having received the last _TaskFinished_ packet, allowing all relaying packets to be delivered to their destinations. While being not as cool, its hard to argue with the effectiveness of this solution. Therefore, you'll find that the registry waits 5 seconds after receiving the last _TaskFinished_ packet and before casting _RequestTrafficSummary_ packets.
 
 Finally, we decided that once all the message nodes had sent their _TrafficSummary_ messages, that they would gracefully shut down, closing all connections and stop listening as well, before terminating.
-
+=======
 # Work methodology
 
 When we started working on the project, we decided that Logi would be responsible for the [registry.go](./registry/registry.go) part of the code, and Kristófer would be responsible for the [messages.go](./messages/messages.go) part. This worked well, as long as we were working on the same functionality at the same time (we met up at RU to work together on the code), as the message nodes and registry are so intertwined.
