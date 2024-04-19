@@ -185,6 +185,7 @@ func (r *Registry) HandleTaskFinished(conn net.Conn, msg *pb.MiniChord_TaskFinis
 
 	if r.NoFinished == len(r.Keys) {
 		// Sleep for 5 seconds to allow relaying packages to finish
+		logger.Info("All packets arrived... sleeping 5 seconds")
 		time.Sleep(5 * time.Second)
 		r.sendTrafficReq()
 	}
@@ -226,6 +227,8 @@ func (r *Registry) HandleTrafficSummary(msg *pb.MiniChord_ReportTrafficSummary) 
 }
 
 func (r *Registry) printSummaries() {
+	var sentSum, receivedSum uint32
+	var totalSentSum, totalReceivedSum int64
 	for _, s := range r.Summaries {
 		fmt.Printf("Node %d,%d,%d,%d,%d,%d\n",
 			s.Id,
@@ -235,7 +238,12 @@ func (r *Registry) printSummaries() {
 			s.TotalSent,
 			s.TotalReceived,
 		)
+		sentSum += s.Sent
+		receivedSum += s.Received
+		totalSentSum += s.TotalSent
+		totalReceivedSum += s.TotalReceived
 	}
+	fmt.Printf("Total | %d, %d, %d, %d\n", sentSum, receivedSum, totalSentSum, totalReceivedSum)
 }
 
 // Command Line Handlers

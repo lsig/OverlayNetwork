@@ -3,6 +3,7 @@ package types
 import (
 	"net"
 	"strconv"
+	"sync"
 
 	pb "github.com/lsig/OverlayNetwork/pb"
 )
@@ -29,6 +30,8 @@ type NodeInfo struct {
 	IsSetup   bool
 	HasClosed bool
 	Stats     pb.TrafficSummary
+	RecvLock  sync.Mutex
+	SendLock  sync.Mutex
 }
 
 type ExternalNode struct {
