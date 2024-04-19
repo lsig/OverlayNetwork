@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lsig/OverlayNetwork/logger"
 	"github.com/lsig/OverlayNetwork/messages/types"
@@ -79,10 +80,12 @@ func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Ne
 		}
 
 		if nodeData.Destination == node.Id {
+			node.RecvLock.Lock()
 			// this packet is for me!
 			node.Stats.Received++
 			node.Stats.TotalReceived += int64(nodeData.Payload)
 			// logger.Debugf("received NodeData message: %v", nodeData)
+			node.RecvLock.Unlock()
 		} else {
 			node.Stats.Relayed++
 			// TODO check if my id appears in the trace.
@@ -92,7 +95,7 @@ func HandleNodeConnection(conn net.Conn, node *types.NodeInfo, network *types.Ne
 			// as we don't want the existing goroutine to be blocked from receiving new messages
 			// if the channel is full
 			go func(nw *types.Network, nd *pb.NodeData) {
-				nw.SendChannel <- nodeData
+				nw.SendChannel <- nd
 			}(network, nodeData)
 		}
 	}
@@ -129,12 +132,14 @@ func HandleConnector(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Ne
 
 		chord := pb.MiniChord{Message: &pb.MiniChord_NodeData{NodeData: packet}}
 
-		logger.Debugf("packet: s: %d | d: %d | sent to: %d", packet.Source, packet.Destination, bestNeighbour.Id)
+		// logger.Debugf("packet: s: %d | d: %d | sent to: %d", packet.Source, packet.Destination, bestNeighbour.Id)
 
 		if packet.Source == node.Id {
+			node.SendLock.Lock()
 			// This packet originated at my node
 			node.Stats.Sent++
 			node.Stats.TotalSent += int64(packet.Payload)
+			node.SendLock.Unlock()
 		}
 
 		err := utils.SendMessage(bestNeighbour.Connection, &chord)
@@ -142,7 +147,11 @@ func HandleConnector(wg *sync.WaitGroup, node *types.NodeInfo, network *types.Ne
 			logger.Errorf("error forwarding packet to node %d: %s", bestNeighbour.Id, err.Error())
 			os.Exit(1)
 		}
+
+		// VERY important sleep, as otherwise the network is overloaded.
+		time.Sleep(1 * time.Millisecond)
 	}
+	// time.Sleep()
 	logger.Infof("Finished sending packets.. closing connections")
 	for _, peer := range network.RoutingTable {
 		peer.Connection.Close()
